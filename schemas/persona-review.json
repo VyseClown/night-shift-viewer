@@ -13,7 +13,7 @@
   ],
   "properties": {
     "persona": {
-      "$comment": "Union of the rn-track and web-track persona sets; must stay in sync with the inline $PERSONAS union in scripts/night-shift.sh. This enum only bounds the universe of valid persona names — per-track/profile correctness is enforced separately by resolve_active_personas + the exact per-track set gate in run_personas.",
+      "$comment": "Union of the rn-track and web-track persona sets plus the cross-track optional personas; must stay in sync with the inline $PERSONAS union in scripts/night-shift.sh. This enum only bounds the universe of valid persona names — per-track/profile correctness is enforced separately by resolve_active_personas + the exact active-set gate in run_personas.",
       "enum": [
         "Mobile UX Designer",
         "React Native Architect",
@@ -25,7 +25,9 @@
         "Performance Expert",
         "Human Advocate",
         "Product Reviewer",
-        "Design Fidelity Reviewer"
+        "Design Fidelity Reviewer",
+        "Security Reviewer",
+        "API Contract Reviewer"
       ]
     },
     "stage": { "enum": ["plan", "implementation"] },

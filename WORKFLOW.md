@@ -122,11 +122,11 @@ fit the stack. Unknown tracks are rejected (`resolve_active_personas` sh:1082).
 | **Floor** | React Native Architect, TS & Code Quality, Human Advocate | Web Architect, TS & Code Quality, Human Advocate |
 | **Profiles** | full / frontend / logic / native | full / frontend / logic / data |
 
-`PERSONAS` (sh:29) is the union of both tracks' six personas **plus the two
-optional personas (11 names)**, used *only* for the persona-review schema
-membership check. The per-track sets/floors (`persona_set`, `persona_floor`
-sh:1016–1030) drive what a spec actually runs (see **Optional personas** below
-for how the two extras opt in).
+`PERSONAS` is the union of both tracks' six personas **plus the four optional
+personas (13 names total)**, used *only* for the persona-review schema membership
+check. The per-track sets/floors (`persona_set`, `persona_floor`) drive what a
+spec actually runs (see **Optional personas** below for how the extras opt in,
+and **Per-spec persona override** for naming an exact set).
 
 **Profiles → active personas** (`profile_personas(profile, track)` sh:1045–1058):
 
@@ -142,26 +142,43 @@ Track-specific profiles do not cross tracks (`native` is rn-only, `data` is
 web-only). The floor is runtime-asserted on every resolve (sh:1092–1102). Real
 archived run = `rn` / `full`.
 
-**Optional personas** (`PERSONAS_OPTIONAL`, `spec_optional_personas`): two
-cross-track reviewers — **Product Reviewer** and **Design Fidelity Reviewer** —
-that belong to no track/profile set or floor. A spec opts in either by listing
-them in an `- Optional reviewers:` field or by including a `## Product Contract`
-/ `## Design Contract` section (a heading auto-activates the matching reviewer).
-`resolve_active_personas` unions any opted-in optional persona onto the profile
-set (deduped, order-preserving) after the floor guard; a spec that opts into
-neither resolves to exactly the plain profile set (zero behavior change). An
-unknown optional reviewer aborts resolution and is rejected by the prompt, the
-gate, and `validate_spec` (with a specific "unknown optional reviewer" message).
-Scope today is text/traceability review; screenshot/pixel-diff visual validation
-is a documented follow-up. The viewer's persona matrix is data-driven, so it
-renders these automatically when present.
+**Optional personas** (`PERSONAS_OPTIONAL`, `spec_optional_personas`,
+`optional_contract_heading`): four cross-track reviewers — **Product Reviewer**,
+**Design Fidelity Reviewer**, **Security Reviewer**, and **API Contract
+Reviewer** — that belong to no track/profile set or floor. A spec opts in either
+by listing them in an `- Optional reviewers:` field or by including the matching
+contract section, whose heading auto-activates the reviewer:
+
+| Optional persona | Auto-activating section |
+|---|---|
+| Product Reviewer | `## Product Contract` |
+| Design Fidelity Reviewer | `## Design Contract` |
+| Security Reviewer | `## Security Contract` |
+| API Contract Reviewer | `## API Contract` |
+
+`resolve_active_personas` unions any opted-in optional persona onto the active set
+(deduped, order-preserving) after the floor guard; a spec that opts into none
+resolves to exactly the plain profile set (zero behavior change). An unknown
+optional reviewer aborts resolution and is rejected by the prompt, the gate, and
+`validate_spec` (specific "unknown optional reviewer" message). The roster is
+data-driven — both the field check and the section auto-activation loop iterate
+`PERSONAS_OPTIONAL`, so adding a reviewer needs no control-flow edits. The
+viewer's persona matrix is likewise data-driven and renders these automatically.
+
+**Per-spec persona override** (`spec_explicit_personas`): a spec may set a
+`- Personas:` line naming the exact specialists to run. When present it replaces
+the Review Profile entirely — the active set becomes the track floor plus exactly
+the named personas (plus any opted-in optional reviewers). Each name must belong
+to the spec's track set or `PERSONAS_OPTIONAL`; an unknown/off-track name is
+rejected (specific "unknown persona in Personas field" message). This is the
+finest-grained lever for controlling per-run token burn.
 
 > **Schema enum (resolved):** `schemas/persona-review.json`'s `persona` enum
-> lists the **9-persona union** of both tracks **plus the 2 optional personas
-> (11 names total)**, matching the inline `$PERSONAS` union; the vendored copy is
+> lists the **9-persona union** of both tracks **plus the 4 optional personas
+> (13 names total)**, matching the inline `$PERSONAS` union; the vendored copy is
 > re-synced to upstream and byte-identical. So validating a persona file against the vendored enum is now
 > safe for both tracks. Per-track/profile correctness is still enforced by the
-> script (`resolve_active_personas` + the exact per-track set gate), not by this
+> script (`resolve_active_personas` + the exact active-set gate), not by this
 > enum — the enum only bounds the universe of valid persona names. The viewer's
 > persona matrix remains data-driven, so it renders both tracks regardless.
 
