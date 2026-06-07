@@ -81,7 +81,7 @@ cd server
 NSV_ALLOW_EDIT=1 npm run dev
 ```
 
-- The flag is surfaced to the UI as `editConfig.editEnabled` (via
+- The flag is surfaced to the UI as `editEnabled` on the launch config (via
   `GET /api/launch/config`); when it is off, no editor is shown.
 - It is **distinct from the launch flags** — enabling editing does not enable
   launching, and vice versa.
