@@ -1,7 +1,69 @@
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile, rename, unlink } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { SPECS_DIR, TODO_FILE } from '../config.js';
 import { listRuns } from './runs.js';
+
+// Longest spec filename we accept (defense against pathological names).
+const MAX_NAME_LEN = 128;
+
+// ── Write path (gated by EDIT_ENABLED at the route layer) ──────────────────
+// These two functions are PURE validators over an untrusted `:name` and never
+// throw — any bad input yields `false` / `null`, never an exception.
+
+// True only when `name` is a safe spec filename: a non-empty `.md` basename with
+// no path separators, no `..`, not absolute, and within a sane length.
+export function specNameSafe(name) {
+  if (typeof name !== 'string') return false;
+  if (name.length === 0 || name.length > MAX_NAME_LEN) return false;
+  if (name.includes('..')) return false;
+  if (name.includes('/') || name.includes('\\')) return false;
+  if (path.isAbsolute(name)) return false;
+  // basename must equal the input (no directory component snuck in)
+  if (path.basename(name) !== name) return false;
+  // allow-list: letters/digits/dot/dash/underscore, must end in .md with a
+  // non-empty base (so ".md" alone is rejected).
+  return /^[A-Za-z0-9._-]+\.md$/.test(name) && name !== '.md';
+}
+
+// Returns the absolute on-disk path for `name`, strictly confined to the real
+// SPECS_DIR (defense in depth against a symlinked specs dir), or `null`. Never
+// throws — a missing SPECS_DIR or any fs error yields `null`.
+export function resolveSpecPath(name) {
+  try {
+    if (!specNameSafe(name)) return null;
+    const realDir = realpathSync(SPECS_DIR);
+    const resolved = path.join(realDir, name);
+    if (resolved !== realDir && resolved.startsWith(realDir + path.sep)) {
+      return resolved;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// Atomically write `content` to SPECS_DIR/<name>: write a temp file in the same
+// directory, then rename it onto the target (rename is atomic within one
+// filesystem, so readers never see a partial file; an existing spec is
+// overwritten and a new one is created). Throws on an unsafe name or fs error;
+// the route layer validates first and maps any throw to a 5xx without leaking
+// paths. On failure the temp file is best-effort removed.
+export async function saveSpec(name, content) {
+  const target = resolveSpecPath(name);
+  if (!target) throw new Error('unsafe spec name');
+  const dir = path.dirname(target);
+  const tmp = path.join(dir, `.${name}.${randomBytes(8).toString('hex')}.tmp`);
+  try {
+    await writeFile(tmp, content, 'utf8');
+    await rename(tmp, target);
+  } catch (err) {
+    await unlink(tmp).catch(() => {});
+    throw err;
+  }
+  return { ok: true, name };
+}
 
 async function readText(file) {
   try {

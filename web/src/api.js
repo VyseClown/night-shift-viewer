@@ -17,6 +17,19 @@ export const getDiff = (project, runId, { base, candidate } = {}) => {
 export const getSpecs = () => get('/api/specs').then((d) => d.specs);
 export const getSpec = (name) => get(`/api/specs/${encodeURIComponent(name)}`);
 
+// Create or overwrite a spec (gated by NSV_ALLOW_EDIT on the server). Body is the
+// raw markdown text. Throws Error(message) on a non-2xx response.
+export async function putSpec(name, markdown) {
+  const res = await fetch(`/api/specs/${encodeURIComponent(name)}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'text/markdown' },
+    body: markdown,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
 // ── Launch control ──
 export const getLaunchConfig = () => get('/api/launch/config');
 export const listLaunches = () => get('/api/launch').then((d) => d.launches);
