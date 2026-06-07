@@ -30,9 +30,27 @@ export default function RunDetail({ project, runId }) {
   const [run, setRun] = useState(null);
   const [err, setErr] = useState(null);
 
+  // Poll while the run is live (running/waiting) so rounds, gates and the
+  // observer verdict appear as they happen; stop once complete/blocked.
   useEffect(() => {
+    let timer;
+    let cancelled = false;
     setRun(null);
-    getRun(project, runId).then(setRun).catch((e) => setErr(String(e)));
+    setErr(null);
+    const load = () =>
+      getRun(project, runId)
+        .then((r) => {
+          if (cancelled) return;
+          setRun(r);
+          const st = r.summary?.status;
+          if (st === 'running' || st === 'waiting') timer = setTimeout(load, 3000);
+        })
+        .catch((e) => !cancelled && setErr(String(e)));
+    load();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [project, runId]);
 
   if (err) return <div className="banner banner-err">{err}</div>;

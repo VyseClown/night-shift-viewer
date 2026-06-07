@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
-import { getRuns, getSpecs } from './api.js';
+import { useEffect, useRef, useState } from 'react';
+import { getRuns, getSpecs, getLaunchConfig } from './api.js';
 import RunList from './components/RunList.jsx';
 import RunDetail from './components/RunDetail.jsx';
 import SpecsList from './components/SpecsList.jsx';
 import SpecDetail from './components/SpecDetail.jsx';
+import LaunchPanel from './components/LaunchPanel.jsx';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('runs');
@@ -16,52 +17,70 @@ export default function App() {
   const [selectedSpec, setSelectedSpec] = useState(null);
   const [specsErr, setSpecsErr] = useState(null);
 
+  const [launchCfg, setLaunchCfg] = useState(null);
+
+  const refetchRuns = () => getRuns().then(setRuns).catch((e) => setRunsErr(String(e)));
+
   useEffect(() => {
     getRuns()
       .then((r) => {
         setRuns(r);
-        if (r.length) setSelectedRun(r[0]);
+        if (r.length) setSelectedRun((cur) => cur || r[0]);
       })
       .catch((e) => setRunsErr(String(e)));
+    getLaunchConfig().then(setLaunchCfg).catch(() => setLaunchCfg({ enabled: false }));
+  }, []);
+
+  // Live: refresh the runs list whenever any project's state.json changes on disk.
+  const debounce = useRef(null);
+  useEffect(() => {
+    const es = new EventSource('/api/events');
+    es.onmessage = () => {
+      clearTimeout(debounce.current);
+      debounce.current = setTimeout(refetchRuns, 800);
+    };
+    es.onerror = () => {};
+    return () => es.close();
   }, []);
 
   useEffect(() => {
     if (activeTab === 'specs' && specs.length === 0 && !specsErr) {
-      getSpecs()
-        .then(setSpecs)
-        .catch((e) => setSpecsErr(String(e)));
+      getSpecs().then(setSpecs).catch((e) => setSpecsErr(String(e)));
     }
   }, [activeTab]);
 
   function handleOpenRun(run) {
-    // run here is { project, runId, status, startedAt } from spec runs list
-    // find matching full run object if available, otherwise use a stub
     const match = runs.find(
-      (r) => r.project === run.project && r.runId === run.runId
+      (r) => r.project === run.project && r.runId === run.runId,
     );
     setSelectedRun(match || run);
     setActiveTab('runs');
   }
 
+  const tabs = [
+    ['runs', 'Runs'],
+    ['specs', 'Specs'],
+    ...(launchCfg?.enabled ? [['launch', 'Launch']] : []),
+  ];
+
   return (
     <div className="app">
       <aside className="sidebar">
         <h1>night-shift</h1>
-        <p className="muted tagline">read-only run viewer</p>
+        <p className="muted tagline">
+          {launchCfg?.enabled ? 'run viewer + launcher' : 'read-only run viewer'}
+        </p>
 
         <div className="tab-bar">
-          <button
-            className={`tab-btn${activeTab === 'runs' ? ' tab-btn-active' : ''}`}
-            onClick={() => setActiveTab('runs')}
-          >
-            Runs
-          </button>
-          <button
-            className={`tab-btn${activeTab === 'specs' ? ' tab-btn-active' : ''}`}
-            onClick={() => setActiveTab('specs')}
-          >
-            Specs
-          </button>
+          {tabs.map(([key, label]) => (
+            <button
+              key={key}
+              className={`tab-btn${activeTab === key ? ' tab-btn-active' : ''}`}
+              onClick={() => setActiveTab(key)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {activeTab === 'runs' && (
@@ -85,22 +104,30 @@ export default function App() {
             />
           </>
         )}
+
+        {activeTab === 'launch' && (
+          <p className="muted">
+            Launch a night-shift run and watch it stream. Real runs are{' '}
+            {launchCfg?.realEnabled ? 'enabled' : 'locked'}.
+          </p>
+        )}
       </aside>
 
       <main className="main">
-        {activeTab === 'runs' && (
-          selectedRun ? (
+        {activeTab === 'runs' &&
+          (selectedRun ? (
             <RunDetail project={selectedRun.project} runId={selectedRun.runId} />
           ) : (
             <p className="muted">Select a run.</p>
-          )
-        )}
-        {activeTab === 'specs' && (
-          selectedSpec ? (
+          ))}
+        {activeTab === 'specs' &&
+          (selectedSpec ? (
             <SpecDetail specName={selectedSpec.name} onOpenRun={handleOpenRun} />
           ) : (
             <p className="muted">Select a spec.</p>
-          )
+          ))}
+        {activeTab === 'launch' && launchCfg && (
+          <LaunchPanel config={launchCfg} onLaunched={() => setTimeout(refetchRuns, 1500)} />
         )}
       </main>
     </div>

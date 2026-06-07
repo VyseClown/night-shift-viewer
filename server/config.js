@@ -20,6 +20,15 @@ export const PROJECTS = candidates
 
 export const SPECS_DIR = path.join(workspaceRoot, 'specs');
 export const TODO_FILE = path.join(workspaceRoot, 'TODO.md');
+export const WORKSPACE_ROOT = workspaceRoot;
+export const SCRIPT_PATH = path.join(workspaceRoot, 'scripts', 'night-shift.sh');
+
+// Launching mutates: it spawns night-shift.sh (autonomous agent, commits, cost).
+// OFF by default so the server stays read-only; opt in per the env flags.
+//   NSV_ALLOW_LAUNCH=1  → enables dry-run + fixture (free / minimal) launches
+//   NSV_ALLOW_REAL=1    → additionally enables real, paid, multi-hour project runs
+export const LAUNCH_ENABLED = process.env.NSV_ALLOW_LAUNCH === '1';
+export const REAL_LAUNCH_ENABLED = process.env.NSV_ALLOW_REAL === '1';
 
 export const HOST = '127.0.0.1';
 export const PORT = Number(process.env.PORT || 8787);

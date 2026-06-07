@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Read-only API over night-shift .night-shift/ artifacts and git diffs.",
+  "description": "API over night-shift .night-shift/ artifacts and git diffs. Read-only by default; launching is opt-in via NSV_ALLOW_LAUNCH / NSV_ALLOW_REAL.",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "dev:launch": "NSV_ALLOW_LAUNCH=1 caffeinate -i node src/server.js",
+    "dev:real": "NSV_ALLOW_LAUNCH=1 NSV_ALLOW_REAL=1 caffeinate -i node src/server.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

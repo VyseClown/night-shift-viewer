@@ -16,3 +16,23 @@ export const getDiff = (project, runId, { base, candidate } = {}) => {
 
 export const getSpecs = () => get('/api/specs').then((d) => d.specs);
 export const getSpec = (name) => get(`/api/specs/${encodeURIComponent(name)}`);
+
+// ── Launch control ──
+export const getLaunchConfig = () => get('/api/launch/config');
+export const listLaunches = () => get('/api/launch').then((d) => d.launches);
+
+export async function postLaunch(body) {
+  const res = await fetch('/api/launch', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+export const stopLaunch = (id) =>
+  fetch(`/api/launch/${id}/stop`, { method: 'POST' }).then((r) => r.json());
+
+export const launchStreamUrl = (id) => `/api/launch/${id}/stream`;

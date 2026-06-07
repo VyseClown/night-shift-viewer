@@ -43,9 +43,28 @@ cd web && npm install && npm run dev         # → http://127.0.0.1:5173 (proxie
 Configure which projects to scan in `server/config.js` (defaults to the sibling
 `rn-sandbox` and `web-app`, whichever exist).
 
+## Launching runs (opt-in, macOS)
+
+The server is **read-only by default**. To enable the **Launch** tab — which spawns
+`night-shift.sh` and streams it live — start it with the launch flags. These
+scripts also wrap the process in `caffeinate -i` so the Mac won't idle-sleep mid
+run (macOS only):
+
+```sh
+cd server
+npm run dev:launch   # enables dry-run + fixture (free / minimal) launches
+npm run dev:real     # additionally enables real, paid, multi-hour project runs
+```
+
+- `dev:launch` → `NSV_ALLOW_LAUNCH=1` (dry-run is free and needs no confirm).
+- `dev:real` → also `NSV_ALLOW_REAL=1` (real runs consume usage/billing, run
+  autonomously, and require an in-UI confirm; refused if the project already has
+  a live run).
+- Plain `npm run dev` keeps everything read-only — no Launch tab.
+
 ## Status
 
 - [x] Phase 0 — scaffold + read-API (runs list, run detail) against the real archive
 - [x] Phase 1 — dashboards (gates, counters, persona matrix, observer, evidence)
 - [x] Phase 2 — diff viewer with `base..HEAD → base..candidate → stored .patch` fallback
-- [ ] Phase 3 — live SSE polish, multi-run history, finding-stall view
+- [x] Phase 3 — live monitoring (auto-refresh while running) + launch control (dry-run/fixture/real, gated)

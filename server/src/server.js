@@ -7,6 +7,14 @@ import { HOST, PORT, PROJECTS } from '../config.js';
 import { listRuns, loadRun } from './runs.js';
 import { listSpecs, loadSpec } from './specs.js';
 import { buildDiff } from './diff.js';
+import {
+  launchConfig,
+  launchRun,
+  stopRun,
+  getLaunch,
+  listLaunches,
+  subscribeLaunch,
+} from './launch.js';
 
 const app = new Hono();
 
@@ -44,6 +52,59 @@ app.get('/api/runs/:project/:runId/diff', async (c) => {
   });
   if (result.error) return c.json(result, 400);
   return c.json(result);
+});
+
+// ── Launch control (mutating; gated by NSV_ALLOW_LAUNCH / NSV_ALLOW_REAL) ──
+// Register specific paths before the bare :id so they aren't shadowed.
+app.get('/api/launch/config', (c) => c.json(launchConfig()));
+
+app.get('/api/launch', (c) => c.json({ launches: listLaunches() }));
+
+app.post('/api/launch', async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const r = launchRun(body);
+  if (r.error) return c.json({ error: r.error }, r.code || 400);
+  return c.json(r);
+});
+
+app.get('/api/launch/:id/stream', (c) => {
+  const id = c.req.param('id');
+  const snapshot = getLaunch(id);
+  const stream = new ReadableStream({
+    start(controller) {
+      const enc = (obj) => controller.enqueue(`data: ${JSON.stringify(obj)}\n\n`);
+      if (!snapshot) {
+        enc({ type: 'error', error: 'launch not found' });
+        controller.close();
+        return;
+      }
+      for (const line of snapshot.log) enc({ type: 'line', line });
+      enc({ type: 'status', status: snapshot.status, exitCode: snapshot.exitCode });
+      const unsub = subscribeLaunch(id, (ev) => enc(ev));
+      c.req.raw.signal.addEventListener('abort', () => {
+        if (unsub) unsub();
+        controller.close();
+      });
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    },
+  });
+});
+
+app.post('/api/launch/:id/stop', (c) =>
+  stopRun(c.req.param('id'))
+    ? c.json({ ok: true })
+    : c.json({ error: 'launch not found or not running' }, 404),
+);
+
+app.get('/api/launch/:id', (c) => {
+  const l = getLaunch(c.req.param('id'));
+  return l ? c.json(l) : c.json({ error: 'launch not found' }, 404);
 });
 
 // SSE: push the live state.json of each project whenever it changes (WORKFLOW §1).

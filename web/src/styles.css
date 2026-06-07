@@ -327,3 +327,55 @@ body {
 .markdown hr { border: none; border-top: 1px solid var(--border); margin: 1.2em 0; }
 .markdown img { max-width: 100%; border-radius: 6px; }
 .specs-list-wrap { display: flex; flex-direction: column; }
+
+/* ── Launch panel ─────────────────────────────────────── */
+.launch h2 { margin: 0 0 4px; font-size: 20px; }
+.launch-modes { display: flex; flex-direction: column; gap: 8px; margin: 16px 0; }
+.mode-card {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.mode-card:hover { background: var(--panel2); }
+.mode-active { border-color: #2563eb; background: var(--panel2); }
+.mode-locked { opacity: 0.6; }
+.mode-card input { margin-right: 8px; }
+.mode-label { font-weight: 600; }
+.mode-desc { display: block; margin-top: 4px; font-size: 12px; }
+.chip-free { color: #4ade80; border-color: #1b3a2b; background: var(--add); }
+.chip-paid { color: #fbbf24; border-color: #6b4c10; background: #2a1f08; }
+
+.launch-fields { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+.launch-fields label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.launch-fields select {
+  background: var(--panel2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
+}
+.confirm-row { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0; font-size: 13px; }
+.start-btn {
+  background: #2563eb; color: #fff; border: none; border-radius: 8px;
+  padding: 8px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.start-btn:disabled { background: var(--panel2); color: var(--muted); cursor: not-allowed; }
+
+.launch-active { margin-top: 20px; }
+.launch-id { font-size: 12px; margin-bottom: 6px; }
+
+/* ── Log console ──────────────────────────────────────── */
+.log-head { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+.stop-btn {
+  margin-left: auto; background: var(--del); color: #f87171;
+  border: 1px solid #6b1010; border-radius: 6px; padding: 3px 10px; cursor: pointer;
+}
+.log-box {
+  background: #0b0d11; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px; margin: 0; max-height: 480px; overflow-y: auto;
+  font-family: ui-monospace, Menlo, monospace; font-size: 12px;
+}
+.log-line { white-space: pre-wrap; word-break: break-word; }
+.log-ok { color: #4ade80; }
+.log-bad { color: #f87171; }
+.log-sys { color: #60a5fa; }
+.log-ctx { color: var(--text); }
