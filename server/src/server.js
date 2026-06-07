@@ -1,10 +1,12 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { readFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { Readable } from 'node:stream';
 import path from 'node:path';
 import chokidar from 'chokidar';
 import { HOST, PORT, PROJECTS } from '../config.js';
-import { listRuns, loadRun } from './runs.js';
+import { listRuns, loadRun, resolveRunAsset } from './runs.js';
 import { listSpecs, loadSpec } from './specs.js';
 import { buildDiff } from './diff.js';
 import {
@@ -52,6 +54,26 @@ app.get('/api/runs/:project/:runId/diff', async (c) => {
   });
   if (result.error) return c.json(result, 400);
   return c.json(result);
+});
+
+// Read-only image asset for the Visual Validation panel. Streams a visual-diff
+// image file strictly confined to the run dir (resolveRunAsset re-validates the
+// path); 404 for anything missing, escaping, or not an allowed image type.
+app.get('/api/runs/:project/:runId/asset', (c) => {
+  const rel = c.req.query('path');
+  const asset = resolveRunAsset(
+    c.req.param('project'),
+    c.req.param('runId'),
+    rel,
+  );
+  if (!asset) return c.json({ error: 'asset not found' }, 404);
+  const body = Readable.toWeb(createReadStream(asset.filePath));
+  return new Response(body, {
+    headers: {
+      'Content-Type': asset.contentType,
+      'Cache-Control': 'no-cache',
+    },
+  });
 });
 
 // ── Launch control (mutating; gated by NSV_ALLOW_LAUNCH / NSV_ALLOW_REAL) ──

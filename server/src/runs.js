@@ -1,7 +1,18 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { PROJECTS, projectById } from '../config.js';
+import { validateVisualDiff, overallPass } from './visualDiff.js';
+
+// Image types the read-only asset route is allowed to serve, with their MIME.
+const IMAGE_CONTENT_TYPES = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.avif': 'image/avif',
+};
 
 async function readJson(file) {
   try {
@@ -152,6 +163,100 @@ async function listPatches(validatedDir) {
   }
 }
 
+// Resolve a report-relative image path to an on-disk file, READ-ONLY and
+// strictly confined to the run directory. Returns { filePath, contentType } or
+// null when the path is missing, escapes the run dir, is not a regular file, or
+// is not an allowed image type. Image paths are resolved relative to the run's
+// `validated/` dir (where the report lives). Used both to mint asset URLs
+// (loadVisual) and to serve bytes (resolveRunAsset) so the two always agree.
+function resolveImage(validatedDir, runDir, relPath) {
+  if (typeof relPath !== 'string' || relPath.length === 0) return null;
+  const ext = path.extname(relPath).toLowerCase();
+  const contentType = IMAGE_CONTENT_TYPES[ext];
+  if (!contentType) return null;
+  const target = path.resolve(validatedDir, relPath);
+  const base = path.resolve(runDir);
+  // Confine: target must be the run dir or strictly inside it (defeats `..`
+  // traversal and absolute paths pointing elsewhere).
+  if (target !== base && !target.startsWith(base + path.sep)) return null;
+  try {
+    if (!statSync(target).isFile()) return null;
+  } catch {
+    return null;
+  }
+  return { filePath: target, contentType };
+}
+
+function assetUrl(project, runId, relPath) {
+  const q = new URLSearchParams({ path: relPath });
+  return `/api/runs/${encodeURIComponent(project)}/${encodeURIComponent(runId)}/asset?${q.toString()}`;
+}
+
+// Build the per-screen view model: pass through the report metadata and add an
+// asset URL for each image that actually resolves on disk (else null), so the
+// panel only ever requests images that exist — no broken <img>, no false pass.
+function screenView(screen, validatedDir, runDir, project, runId) {
+  const urlFor = (p) =>
+    resolveImage(validatedDir, runDir, p)
+      ? assetUrl(project, runId, p)
+      : null;
+  return {
+    screen: screen.screen ?? null,
+    state: screen.state ?? null,
+    diff_pct: screen.diff_pct ?? null,
+    tolerance: screen.tolerance ?? null,
+    pass: typeof screen.pass === 'boolean' ? screen.pass : null,
+    referenceUrl: urlFor(screen.reference),
+    screenshotUrl: urlFor(screen.screenshot),
+    diffImageUrl: urlFor(screen.diff_image),
+  };
+}
+
+// Every validated/visual-diff-*.json for the run, parsed + validated. Invalid
+// or unparseable reports are flagged (never thrown), so one bad file can't break
+// the run detail. Returns [] when the run has no visual evidence.
+async function loadVisual(validatedDir, runDir, project, runId) {
+  let files = [];
+  try {
+    files = (await readdir(validatedDir))
+      .filter((f) => /^visual-diff-.*\.json$/.test(f))
+      .sort();
+  } catch {
+    return [];
+  }
+  const out = [];
+  for (const file of files) {
+    const report = await readJson(path.join(validatedDir, file));
+    if (report === null) {
+      out.push({
+        file,
+        valid: false,
+        errors: ['unreadable or invalid JSON'],
+        task: null,
+        overallPass: false,
+        screens: [],
+      });
+      continue;
+    }
+    const { ok, errors } = validateVisualDiff(report);
+    const screens =
+      ok && Array.isArray(report.screens)
+        ? report.screens.map((s) =>
+            screenView(s, validatedDir, runDir, project, runId),
+          )
+        : [];
+    out.push({
+      file,
+      valid: ok,
+      errors,
+      task: typeof report.task === 'string' ? report.task : null,
+      overallPass: ok ? overallPass(report) : false,
+      screens,
+    });
+  }
+  return out;
+}
+
 export async function loadRun(projectId, runId) {
   const project = projectById(projectId);
   if (!project) return null;
@@ -184,6 +289,7 @@ export async function loadRun(projectId, runId) {
       candidate_verified: state?.candidate_verified ?? null,
     },
     personas: await loadPersonas(validated),
+    visual: await loadVisual(validated, dir, project.id, runId),
     observers: observers.map((o) => o.data),
     evidence: {
       baseline: await readJson(path.join(validated, 'baseline.json')),
@@ -205,4 +311,16 @@ export async function loadRun(projectId, runId) {
         approvedCommit && headCommit && approvedCommit !== headCommit,
     },
   };
+}
+
+// Resolve a visual-diff image asset for serving, READ-ONLY and confined to the
+// run dir. Returns { filePath, contentType } or null. Used by the asset route;
+// re-validates confinement independently of loadRun (defense in depth).
+export function resolveRunAsset(projectId, runId, relPath) {
+  const project = projectById(projectId);
+  if (!project) return null;
+  const resolved = resolveRunDir(project, runId);
+  if (!resolved) return null;
+  const validatedDir = path.join(resolved.dir, 'validated');
+  return resolveImage(validatedDir, resolved.dir, relPath);
 }
