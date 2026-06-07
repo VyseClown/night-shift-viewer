@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 import { Readable } from 'node:stream';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import chokidar from 'chokidar';
 import { HOST, PORT, PROJECTS, ALLOWED_ORIGINS, isAllowedOrigin } from '../config.js';
 import { listRuns, loadRun, resolveRunAsset } from './runs.js';
@@ -184,9 +185,16 @@ app.get('/api/events', (c) => {
   });
 });
 
-serve({ fetch: app.fetch, hostname: HOST, port: PORT }, (info) => {
-  console.log(`[night-shift-viewer] read-only API on http://${HOST}:${info.port}`);
-  console.log(
-    `[night-shift-viewer] scanning: ${PROJECTS.map((p) => p.id).join(', ') || '(none found)'}`,
-  );
-});
+// Exported so tests can drive routes via `app.request(...)` without binding a
+// port. Only start the listener when run directly (node src/server.js), not when
+// imported by a test.
+export { app };
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  serve({ fetch: app.fetch, hostname: HOST, port: PORT }, (info) => {
+    console.log(`[night-shift-viewer] read-only API on http://${HOST}:${info.port}`);
+    console.log(
+      `[night-shift-viewer] scanning: ${PROJECTS.map((p) => p.id).join(', ') || '(none found)'}`,
+    );
+  });
+}

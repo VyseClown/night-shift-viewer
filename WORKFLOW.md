@@ -199,8 +199,13 @@ supplied evidence. Verdict extracted from `.result` (whole-JSON → last fenced
 then `normalize_observer_output` (sh:1815) coerces synonyms
 (`REQUEST_CHANGES`→BLOCK), pads ids to `OBS-NNN`, strips unknown keys, and can
 **fabricate fallback evidence** ("see observer notes") — so the gate is softer
-than the schema implies. One retry (`validated_observer_retry`), else block.
-Output: `validated/observer-<commit>.json`; appended to `NIGHT_SHIFT_REVIEW.md`.
+than the schema implies. The bias is deliberately **fail-closed**: a malformed or
+unstructured verdict normalizes toward BLOCK (a synthetic finding is added rather
+than the verdict dropped), and it **never fabricates an APPROVE** — so the
+softening can only over-block, never wave a candidate through. (We can't use the
+CLI's `--json-schema` to force a clean shape: it hangs waiting on stdin.) One
+retry (`validated_observer_retry`), else block. Output:
+`validated/observer-<commit>.json`; appended to `NIGHT_SHIFT_REVIEW.md`.
 
 **observer-review.json**: `{observer:"claude", primary:"claude", task,
 candidate_commit(^[0-9a-f]{7,64}$), status, findings[](OBS-NNN),

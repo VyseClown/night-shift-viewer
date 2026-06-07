@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { resolveRunDir } from '../src/runs.js';
+import { resolveRunDir, listRuns } from '../src/runs.js';
 
 // Build a throwaway project root with an optional live state and/or archived run.
 function makeProject({ liveRunId, archivedRunId } = {}) {
@@ -81,5 +81,22 @@ test('malformed live state.json resolves to null, never throws', () => {
     assert.equal(resolveRunDir(project, 'whatever'), null);
   } finally {
     cleanup();
+  }
+});
+
+// Discovery smoke test against the real configured PROJECTS. Resilient: asserts
+// the shape, not specific runs (FS contents vary), and that it never throws.
+test('listRuns returns well-formed, newest-first run summaries', async () => {
+  const runs = await listRuns();
+  assert.ok(Array.isArray(runs));
+  for (const r of runs) {
+    assert.equal(typeof r.runId, 'string');
+    assert.equal(typeof r.project, 'string');
+    assert.equal(typeof r.isArchived, 'boolean');
+  }
+  // Sorted newest-first using the same comparator listRuns applies.
+  for (let i = 1; i < runs.length; i++) {
+    const cmp = String(runs[i - 1].startedAt).localeCompare(String(runs[i].startedAt));
+    assert.ok(cmp >= 0);
   }
 });
