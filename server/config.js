@@ -12,10 +12,13 @@ const workspaceRoot = path.resolve(here, '..', '..');
 const candidates = [
   path.join(workspaceRoot, 'rn-sandbox'),
   path.join(workspaceRoot, 'web-app'),
+  path.join(workspaceRoot, 'nightshift-demo'),
 ];
 
+// A project is launchable/scannable if its directory exists. Runs only appear
+// once it has a .night-shift/ (listRuns handles the empty case gracefully).
 export const PROJECTS = candidates
-  .filter((dir) => existsSync(path.join(dir, '.night-shift')))
+  .filter((dir) => existsSync(dir))
   .map((dir) => ({ id: path.basename(dir), root: dir }));
 
 export const SPECS_DIR = path.join(workspaceRoot, 'specs');

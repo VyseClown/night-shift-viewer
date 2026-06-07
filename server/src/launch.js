@@ -104,6 +104,12 @@ export function launchRun({ project, spec, mode } = {}) {
       return { error: 'real runs are disabled; start the server with NSV_ALLOW_REAL=1', code: 403 };
     const p = projectById(project);
     if (!p) return { error: 'unknown project', code: 400 };
+    // In-memory guard closes the race where two near-simultaneous launches both
+    // pass the state-file check before either writes state.json.
+    for (const l of launches.values()) {
+      if (l.status === 'running' && l.project === project)
+        return { error: 'a run for this project is already active', code: 409 };
+    }
     if (projectHasLiveRun(p.root))
       return { error: 'this project already has a live run (one run per project)', code: 409 };
     args = ['--project', p.root];
@@ -121,6 +127,10 @@ export function launchRun({ project, spec, mode } = {}) {
   const child = spawn('bash', [SCRIPT_PATH, ...args], {
     cwd: WORKSPACE_ROOT,
     env,
+    // Detach stdin (/dev/null). Without this the child inherits an open pipe the
+    // server never writes to, and each `claude -p` turn stalls ~3s waiting on
+    // stdin ("no stdin data received in 3s"). stdout/stderr stay piped for the log.
+    stdio: ['ignore', 'pipe', 'pipe'],
   });
   const l = {
     id,
