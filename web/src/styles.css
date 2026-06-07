@@ -363,6 +363,30 @@ body {
 .launch-active { margin-top: 20px; }
 .launch-id { font-size: 12px; margin-bottom: 6px; }
 
+/* ── Spec editor ──────────────────────────────────────── */
+.banner-ok { background: var(--add); border-color: #14532d; color: #4ade80; }
+.spec-edit-toolbar { margin-left: auto; display: flex; gap: 8px; }
+.ghost-btn {
+  background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 12px; font-size: 13px; cursor: pointer;
+}
+.ghost-btn:hover { border-color: #3b4250; }
+.ghost-btn:disabled { color: var(--muted); cursor: not-allowed; }
+.spec-edit-fields { display: flex; flex-direction: column; gap: 12px; margin: 12px 0; }
+.spec-edit-fields label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.spec-edit-fields input[type='text'] {
+  background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: 14px;
+}
+.spec-textarea {
+  background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 12px; width: 100%; box-sizing: border-box;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px;
+  line-height: 1.5; resize: vertical;
+}
+.spec-name-hint { font-size: 12px; margin: -4px 0 0; }
+.spec-edit-actions { display: flex; gap: 8px; align-items: center; }
+
 /* ── Log console ──────────────────────────────────────── */
 .log-head { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
 .stop-btn {

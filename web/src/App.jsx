@@ -120,12 +120,23 @@ export default function App() {
           ) : (
             <p className="muted">Select a run.</p>
           ))}
-        {activeTab === 'specs' &&
-          (selectedSpec ? (
-            <SpecDetail specName={selectedSpec.name} onOpenRun={handleOpenRun} />
-          ) : (
-            <p className="muted">Select a spec.</p>
-          ))}
+        {activeTab === 'specs' && (
+          <SpecDetail
+            specName={selectedSpec?.name || null}
+            onOpenRun={handleOpenRun}
+            editEnabled={!!launchCfg?.editEnabled}
+            existingNames={specs.map((s) => s.file)}
+            onSaved={(name) => {
+              getSpecs()
+                .then((s) => {
+                  setSpecs(s);
+                  const saved = s.find((x) => x.file === name);
+                  if (saved) setSelectedSpec(saved);
+                })
+                .catch((e) => setSpecsErr(String(e)));
+            }}
+          />
+        )}
         {activeTab === 'launch' && launchCfg && (
           <LaunchPanel config={launchCfg} onLaunched={() => setTimeout(refetchRuns, 1500)} />
         )}

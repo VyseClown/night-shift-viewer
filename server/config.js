@@ -33,6 +33,12 @@ export const SCRIPT_PATH = path.join(workspaceRoot, 'scripts', 'night-shift.sh')
 export const LAUNCH_ENABLED = process.env.NSV_ALLOW_LAUNCH === '1';
 export const REAL_LAUNCH_ENABLED = process.env.NSV_ALLOW_REAL === '1';
 
+// Editing specs mutates files under SPECS_DIR. OFF by default so the viewer stays
+// read-only; this is a distinct flag from the launch flags above, so enabling
+// editing never implies the ability to launch (paid) runs and vice versa.
+//   NSV_ALLOW_EDIT=1 → enables PUT /api/specs/:name (create / overwrite a spec)
+export const EDIT_ENABLED = process.env.NSV_ALLOW_EDIT === '1';
+
 export const HOST = '127.0.0.1';
 export const PORT = Number(process.env.PORT || 8787);
 

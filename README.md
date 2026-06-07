@@ -22,6 +22,8 @@ sibling project repos and runs read-only `git` commands for diffs.
    GET /api/runs                       list runs across configured projects
    GET /api/runs/:project/:runId       full run detail (state, reviews, evidence)
    GET /api/runs/:project/:runId/diff  structured per-file diff (fallback chain)
+   GET /api/specs                      list specs; GET /api/specs/:name spec detail
+   PUT /api/specs/:name                save a spec (gated by NSV_ALLOW_EDIT; off by default)
    GET /api/events                     SSE: live state.json changes (chokidar)
         │
         ▼
@@ -67,6 +69,32 @@ wildcard), and the mutating launch endpoints (`POST /api/launch`,
 `POST /api/launch/:id/stop`) reject any request carrying a non-allow-listed
 `Origin`, so another website cannot trigger a costly run even when launch is
 enabled. Non-browser callers (curl, tests) send no `Origin` and are allowed.
+
+## Editing specs (opt-in)
+
+The viewer is **read-only by default** and the spec editor is hidden. Start the
+server with `NSV_ALLOW_EDIT=1` to enable creating and editing spec markdown from
+the **Specs** tab (an **Edit** toggle on a spec, and a **New spec** affordance):
+
+```sh
+cd server
+NSV_ALLOW_EDIT=1 npm run dev
+```
+
+- The flag is surfaced to the UI as `editConfig.editEnabled` (via
+  `GET /api/launch/config`); when it is off, no editor is shown.
+- It is **distinct from the launch flags** — enabling editing does not enable
+  launching, and vice versa.
+- The only write surface is `PUT /api/specs/:name`:
+  - `name` must be a safe `.md` basename (no path separators, no `..`, not
+    absolute, sane length); the path is re-confined to the engine's `specs/`
+    directory. The body is the raw markdown (capped at 256 KB).
+  - Responses: `200 {ok:true, name}`; `403` when editing is disabled; `403` for a
+    disallowed `Origin` (the same CSRF guard the launch endpoints use); `400` for
+    an unsafe name or an empty / oversized body.
+  - Writes are **atomic** (temp file + rename) and confined to `specs/`; an
+    existing name is overwritten, a new name is created. Spec content is never
+    executed — it is plain markdown persisted for a later night-shift run.
 
 ## Status
 

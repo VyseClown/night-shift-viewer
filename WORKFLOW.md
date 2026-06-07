@@ -339,3 +339,36 @@ dangling) — differ only by `CHANGELOG.md`.
   `pass` inconsistent with `diff_pct`/`tolerance`) is flagged as an error and
   `overallPass` returns false, so the UI never surfaces a false "pass".
 - **Tolerate anomalies**: never assert Σ`stage_counters` == `primary_turns`, etc.
+
+## 9. Spec editor (opt-in write path)
+
+The viewer is read-only by default. A single, tightly-gated write path lets a user
+create or edit the engine's spec markdown from the **Specs** tab:
+
+- **Flag**: `NSV_ALLOW_EDIT=1` (`config.js` → `EDIT_ENABLED`). It is **distinct**
+  from the launch flags (`NSV_ALLOW_LAUNCH` / `NSV_ALLOW_REAL`), so editing and
+  launching are enabled independently. The value is exposed to the UI as
+  `editEnabled` on `GET /api/launch/config`; when false the editor is hidden and
+  the view is exactly as before.
+- **Endpoint**: `PUT /api/specs/:name` behind the existing `csrfGuard`. Order of
+  checks: disallowed `Origin` → `403`; editing disabled → `403`; unsafe `:name` →
+  `400`; empty / oversized (> 256 KB) body → `400`; otherwise the markdown is
+  written and `200 {ok:true, name}` returned. `GET /api/specs` and
+  `GET /api/specs/:name` are unchanged.
+- **Name safety**: `specNameSafe(name)` and `resolveSpecPath(name)` in
+  `server/src/specs.js` are pure and never throw. A name is accepted only as a
+  non-empty `.md` basename — no separators, no `..`, not absolute, sane length —
+  and the resolved path is re-confined to the *real* `SPECS_DIR` (guards a
+  symlinked specs dir).
+- **Atomic write**: `saveSpec` writes a temp file inside `SPECS_DIR` then
+  `rename`s it onto the target, so a reader never sees a partial file; an existing
+  spec is overwritten and a new one created. On failure the temp file is removed
+  and the error becomes a `500 {error}` with no path/stack disclosure.
+- **UI**: `SpecDetail.jsx` gains an **Edit** toggle (preloads the markdown into a
+  labelled textarea) and a **New spec** form (name + body). Saves show an
+  aria-live success/error state and re-fetch the rendered spec; creating a new
+  spec that matches an existing name asks for confirmation before overwriting.
+  Nothing is shown when `editEnabled` is false.
+- **Out of scope / non-execution**: spec content is plain markdown, never
+  executed; the editor does not run `validate_spec` (the night-shift validates at
+  run time) and does not delete or rename specs.

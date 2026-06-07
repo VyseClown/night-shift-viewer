@@ -6,9 +6,9 @@ import { Readable } from 'node:stream';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import chokidar from 'chokidar';
-import { HOST, PORT, PROJECTS, ALLOWED_ORIGINS, isAllowedOrigin } from '../config.js';
+import { HOST, PORT, PROJECTS, ALLOWED_ORIGINS, isAllowedOrigin, EDIT_ENABLED } from '../config.js';
 import { listRuns, loadRun, resolveRunAsset } from './runs.js';
-import { listSpecs, loadSpec } from './specs.js';
+import { listSpecs, loadSpec, saveSpec, specNameSafe } from './specs.js';
 import { buildDiff } from './diff.js';
 import {
   launchConfig,
@@ -56,6 +56,39 @@ app.get('/api/specs/:name', async (c) => {
   const spec = await loadSpec(c.req.param('name'));
   if (!spec) return c.json({ error: 'spec not found' }, 404);
   return c.json(spec);
+});
+
+// Gated, path-confined write: save markdown to SPECS_DIR/<name>. csrfGuard runs
+// first (disallowed Origin → 403), then editing must be enabled (NSV_ALLOW_EDIT),
+// the untrusted :name must pass the pure validator, and the body is capped before
+// the atomic write. The viewer never writes outside SPECS_DIR and never executes
+// spec content. GET /api/specs and GET /api/specs/:name are unchanged.
+const MAX_SPEC_BYTES = 256 * 1024;
+app.put('/api/specs/:name', csrfGuard, async (c) => {
+  if (!EDIT_ENABLED)
+    return c.json(
+      { error: 'editing is disabled; start the server with NSV_ALLOW_EDIT=1' },
+      403,
+    );
+  const name = c.req.param('name');
+  if (!specNameSafe(name)) return c.json({ error: 'unsafe spec name' }, 400);
+
+  const declared = Number(c.req.header('Content-Length'));
+  if (Number.isFinite(declared) && declared > MAX_SPEC_BYTES)
+    return c.json({ error: 'spec too large' }, 400);
+
+  const content = await c.req.text();
+  if (!content) return c.json({ error: 'empty spec' }, 400);
+  if (Buffer.byteLength(content, 'utf8') > MAX_SPEC_BYTES)
+    return c.json({ error: 'spec too large' }, 400);
+
+  try {
+    await saveSpec(name, content);
+    return c.json({ ok: true, name });
+  } catch {
+    // No path or stack in the body — avoid filesystem disclosure.
+    return c.json({ error: 'failed to save spec' }, 500);
+  }
 });
 
 app.get('/api/runs/:project/:runId', async (c) => {

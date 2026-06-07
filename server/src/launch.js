@@ -6,6 +6,7 @@ import {
   SCRIPT_PATH,
   LAUNCH_ENABLED,
   REAL_LAUNCH_ENABLED,
+  EDIT_ENABLED,
   PROJECTS,
   projectById,
 } from '../config.js';
@@ -21,6 +22,7 @@ export function launchConfig() {
   return {
     enabled: LAUNCH_ENABLED,
     realEnabled: REAL_LAUNCH_ENABLED,
+    editEnabled: EDIT_ENABLED,
     scriptPresent: existsSync(SCRIPT_PATH),
     scriptPath: SCRIPT_PATH,
     projects: PROJECTS.map((p) => p.id),
