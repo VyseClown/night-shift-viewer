@@ -5,6 +5,7 @@ import path from 'node:path';
 import chokidar from 'chokidar';
 import { HOST, PORT, PROJECTS } from '../config.js';
 import { listRuns, loadRun } from './runs.js';
+import { listSpecs, loadSpec } from './specs.js';
 import { buildDiff } from './diff.js';
 
 const app = new Hono();
@@ -21,6 +22,14 @@ app.get('/api/health', (c) =>
 );
 
 app.get('/api/runs', async (c) => c.json({ runs: await listRuns() }));
+
+app.get('/api/specs', async (c) => c.json({ specs: await listSpecs() }));
+
+app.get('/api/specs/:name', async (c) => {
+  const spec = await loadSpec(c.req.param('name'));
+  if (!spec) return c.json({ error: 'spec not found' }, 404);
+  return c.json(spec);
+});
 
 app.get('/api/runs/:project/:runId', async (c) => {
   const run = await loadRun(c.req.param('project'), c.req.param('runId'));

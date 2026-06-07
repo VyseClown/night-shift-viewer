@@ -18,6 +18,9 @@ export const PROJECTS = candidates
   .filter((dir) => existsSync(path.join(dir, '.night-shift')))
   .map((dir) => ({ id: path.basename(dir), root: dir }));
 
+export const SPECS_DIR = path.join(workspaceRoot, 'specs');
+export const TODO_FILE = path.join(workspaceRoot, 'TODO.md');
+
 export const HOST = '127.0.0.1';
 export const PORT = Number(process.env.PORT || 8787);
 

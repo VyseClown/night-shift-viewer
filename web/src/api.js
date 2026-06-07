@@ -13,3 +13,6 @@ export const getDiff = (project, runId, { base, candidate } = {}) => {
   if (candidate) q.set('candidate', candidate);
   return get(`/api/runs/${project}/${runId}/diff?${q.toString()}`);
 };
+
+export const getSpecs = () => get('/api/specs').then((d) => d.specs);
+export const getSpec = (name) => get(`/api/specs/${encodeURIComponent(name)}`);

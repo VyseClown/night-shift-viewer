@@ -5,15 +5,23 @@ import PersonaMatrix from './PersonaMatrix.jsx';
 import ObserverPanel from './ObserverPanel.jsx';
 import EvidencePanel from './EvidencePanel.jsx';
 import DiffViewer from './DiffViewer.jsx';
+import SpecPanel from './SpecPanel.jsx';
 
 // Caps from night-shift.sh defaults (WORKFLOW §7).
 const MAX_TASK_TURNS = 36;
 
-function Section({ title, children }) {
+function Section({ title, children, collapsible = false, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <section className="section">
-      <h3>{title}</h3>
-      {children}
+      <h3
+        className={collapsible ? 'section-title-collapsible' : ''}
+        onClick={collapsible ? () => setOpen((v) => !v) : undefined}
+      >
+        {collapsible && <span className="section-toggle">{open ? '▾' : '▸'}</span>}
+        {title}
+      </h3>
+      {(!collapsible || open) && children}
     </section>
   );
 }
@@ -65,6 +73,12 @@ export default function RunDetail({ project, runId }) {
           candidates <strong>{s.candidateCommits?.length ?? 0}</strong>
         </div>
       </div>
+
+      {s.taskName && (
+        <Section title="Spec" collapsible defaultOpen={false}>
+          <SpecPanel name={s.taskName} />
+        </Section>
+      )}
 
       <Section title="Review pipeline">
         <PersonaMatrix personas={run.personas} />
