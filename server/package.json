@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
+    "test": "node --test test/*.test.js",
     "dev:launch": "NSV_ALLOW_LAUNCH=1 caffeinate -i node src/server.js",
     "dev:real": "NSV_ALLOW_LAUNCH=1 NSV_ALLOW_REAL=1 caffeinate -i node src/server.js"
   },

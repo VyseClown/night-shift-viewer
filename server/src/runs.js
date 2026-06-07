@@ -1,5 +1,5 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync, statSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { PROJECTS, projectById } from '../config.js';
 import { validateVisualDiff, overallPass } from './visualDiff.js';
@@ -91,12 +91,22 @@ export async function listRuns() {
 }
 
 // Resolve the on-disk base directory for a (project, runId), archived or live.
-function resolveRunDir(project, runId) {
+// The live fallback only matches when the top-level state.json actually belongs
+// to this runId — otherwise an unknown/stale runId would silently read whatever
+// run is currently live (the dir is shared; only its run_id distinguishes runs).
+// Exported for unit testing (server/test/runResolution.test.js).
+export function resolveRunDir(project, runId) {
   const archived = archiveDir(project, runId);
   if (existsSync(archived)) return { dir: archived, isArchived: true };
   const live = path.join(project.root, '.night-shift');
-  if (existsSync(path.join(live, 'state.json'))) {
-    return { dir: live, isArchived: false };
+  const liveState = path.join(live, 'state.json');
+  if (existsSync(liveState)) {
+    try {
+      const st = JSON.parse(readFileSync(liveState, 'utf8'));
+      if (st && st.run_id === runId) return { dir: live, isArchived: false };
+    } catch {
+      // Unreadable/partial live state → treat as not found rather than guessing.
+    }
   }
   return null;
 }
