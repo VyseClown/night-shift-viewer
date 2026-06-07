@@ -23,7 +23,9 @@
         "Backend & Data Expert",
         "TypeScript & Code Quality Expert",
         "Performance Expert",
-        "Human Advocate"
+        "Human Advocate",
+        "Product Reviewer",
+        "Design Fidelity Reviewer"
       ]
     },
     "stage": { "enum": ["plan", "implementation"] },
