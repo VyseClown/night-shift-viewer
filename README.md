@@ -62,6 +62,12 @@ npm run dev:real     # additionally enables real, paid, multi-hour project runs
   a live run).
 - Plain `npm run dev` keeps everything read-only — no Launch tab.
 
+The API binds to `127.0.0.1` only. CORS is reflected for the Vite origin (no
+wildcard), and the mutating launch endpoints (`POST /api/launch`,
+`POST /api/launch/:id/stop`) reject any request carrying a non-allow-listed
+`Origin`, so another website cannot trigger a costly run even when launch is
+enabled. Non-browser callers (curl, tests) send no `Origin` and are allowed.
+
 ## Status
 
 - [x] Phase 0 — scaffold + read-API (runs list, run detail) against the real archive

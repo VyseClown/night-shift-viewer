@@ -36,6 +36,26 @@ export const REAL_LAUNCH_ENABLED = process.env.NSV_ALLOW_REAL === '1';
 export const HOST = '127.0.0.1';
 export const PORT = Number(process.env.PORT || 8787);
 
+// Browser origins permitted for CORS and state-changing requests. The server
+// binds to localhost and the app reaches it same-origin through the Vite dev
+// proxy, so legitimate requests carry the Vite origin (or no Origin at all, for
+// curl / server-to-server / tests). Direct browser access to the API port is
+// also allowed for convenience.
+export const ALLOWED_ORIGINS = new Set([
+  'http://127.0.0.1:5173',
+  'http://localhost:5173',
+  `http://127.0.0.1:${PORT}`,
+  `http://localhost:${PORT}`,
+]);
+
+// CSRF posture for mutating endpoints. Allowed when the request carries no
+// Origin (non-browser caller) or an allow-listed Origin. A browser on a
+// malicious page always sends its (disallowed) Origin on a cross-site POST, so
+// this blocks drive-by launches while leaving the local dev flow intact.
+export function isAllowedOrigin(origin) {
+  return !origin || ALLOWED_ORIGINS.has(origin);
+}
+
 export function projectById(id) {
   return PROJECTS.find((p) => p.id === id) || null;
 }

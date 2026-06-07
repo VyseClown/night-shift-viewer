@@ -5,7 +5,7 @@ import { createReadStream } from 'node:fs';
 import { Readable } from 'node:stream';
 import path from 'node:path';
 import chokidar from 'chokidar';
-import { HOST, PORT, PROJECTS } from '../config.js';
+import { HOST, PORT, PROJECTS, ALLOWED_ORIGINS, isAllowedOrigin } from '../config.js';
 import { listRuns, loadRun, resolveRunAsset } from './runs.js';
 import { listSpecs, loadSpec } from './specs.js';
 import { buildDiff } from './diff.js';
@@ -20,12 +20,28 @@ import {
 
 const app = new Hono();
 
-// Local dev tool: allow the Vite origin. Server binds to 127.0.0.1 only.
+// Local dev tool: server binds to 127.0.0.1 only. Reflect CORS for allow-listed
+// origins only (no wildcard), so a cross-site page cannot read API responses.
 app.use('*', async (c, next) => {
-  c.header('Access-Control-Allow-Origin', '*');
+  const origin = c.req.header('Origin');
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    c.header('Access-Control-Allow-Origin', origin);
+    c.header('Vary', 'Origin');
+  }
   c.header('X-Content-Type-Options', 'nosniff');
   await next();
 });
+
+// CSRF guard for state-changing endpoints: reject a request that carries a
+// disallowed Origin (a malicious page's drive-by POST). Missing Origin (curl /
+// tests / server-to-server) is permitted. Combined with the gated launch flags,
+// this prevents another site from triggering a costly localhost run.
+const csrfGuard = async (c, next) => {
+  if (!isAllowedOrigin(c.req.header('Origin'))) {
+    return c.json({ error: 'cross-origin request rejected' }, 403);
+  }
+  await next();
+};
 
 app.get('/api/health', (c) =>
   c.json({ ok: true, projects: PROJECTS.map((p) => p.id) }),
@@ -82,7 +98,7 @@ app.get('/api/launch/config', (c) => c.json(launchConfig()));
 
 app.get('/api/launch', (c) => c.json({ launches: listLaunches() }));
 
-app.post('/api/launch', async (c) => {
+app.post('/api/launch', csrfGuard, async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const r = launchRun(body);
   if (r.error) return c.json({ error: r.error }, r.code || 400);
@@ -118,7 +134,7 @@ app.get('/api/launch/:id/stream', (c) => {
   });
 });
 
-app.post('/api/launch/:id/stop', (c) =>
+app.post('/api/launch/:id/stop', csrfGuard, (c) =>
   stopRun(c.req.param('id'))
     ? c.json({ ok: true })
     : c.json({ error: 'launch not found or not running' }, 404),
