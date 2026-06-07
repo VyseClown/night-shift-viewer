@@ -235,6 +235,7 @@ Under `<project>/.night-shift/` (git-ignored):
 | `validated/baseline.json`, `final.json`, `test-first-*.json` | copied to archive |
 | `validated/execution-<commit>.json`, `observer-<commit>.json` | one per candidate / observer run; archived |
 | `validated/personas/<spec>/<stage>/round-N/*.json` | archived |
+| `validated/visual-diff-*.json` | Design-Fidelity Phase-2 visual-diff reports (engine-emitted later); read by the viewer's `visual` field; archived if present |
 | `validated/*.patch`, `*-execution-evidence.json` | primary-authored; archived if present |
 | `archive/<run-id>/{state.json, summary.json, validated/}` | permanent (success only) |
 
@@ -303,4 +304,16 @@ dangling) — differ only by `CHANGELOG.md`.
   and "primary-claimed vs wrapper-verified" cross-check indicator.
 - **Diff viewer**: per-file unified/split, using the §6 fallback chain; flag
   dangling/superseded commits.
+- **Visual validation panel**: renders the run-detail payload's read-only
+  `visual` field — every `validated/visual-diff-*.json`, parsed and validated by
+  the pure `server/src/visualDiff.js` (mirrors `schemas/visual-diff.json`).
+  Per screen/state it shows the reference / implementation / diff images, the
+  diff % vs tolerance, and a pass/fail badge; empty runs show an empty state.
+  Image bytes are served out-of-band (not embedded in the run JSON) by the
+  read-only, path-confined route `GET /api/runs/:project/:runId/asset?path=…`
+  and are lazy-loaded; the panel only requests images the server resolved on
+  disk, so a missing/`null` `diff_image` or absent file degrades to a "no image"
+  placeholder — never a broken image. An unparseable or invalid report (e.g.
+  `pass` inconsistent with `diff_pct`/`tolerance`) is flagged as an error and
+  `overallPass` returns false, so the UI never surfaces a false "pass".
 - **Tolerate anomalies**: never assert Σ`stage_counters` == `primary_turns`, etc.

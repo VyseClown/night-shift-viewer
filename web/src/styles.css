@@ -379,3 +379,74 @@ body {
 .log-bad { color: #f87171; }
 .log-sys { color: #60a5fa; }
 .log-ctx { color: var(--text); }
+
+/* ── Visual Validation panel ──────────────────────────────────────────────
+   Read-only visual-diff evidence. The three-up image grid is fluid: it wraps
+   to fewer-per-row on narrow/zoomed viewports rather than overflowing (WCAG
+   2.1 AA 1.4.10 Reflow). min-width:0 defeats the grid/flex min-content floor. */
+.vv { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.vv-report {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--panel2);
+  min-width: 0;
+}
+.vv-report-head { display: flex; align-items: center; gap: 10px; }
+.vv-report-file { margin: 0; font-size: 14px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.vv-task { margin: 6px 0 12px; }
+
+.vv-invalid {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #6b1010;
+  border-radius: 6px;
+  background: var(--del);
+  color: #f87171;
+}
+.vv-errors { margin: 6px 0 0; padding-left: 18px; font-size: 12px; }
+
+.vv-screen { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); min-width: 0; }
+.vv-screen:first-of-type { border-top: none; padding-top: 0; margin-top: 8px; }
+.vv-screen-head { display: flex; align-items: center; gap: 10px; }
+.vv-screen-title { margin: 0; font-size: 13px; }
+
+.vv-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+.vv-figure { margin: 0; min-width: 0; }
+.vv-figcap { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 4px; }
+.vv-img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.vv-noimg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.vv-metrics { margin: 4px 0 0; font-size: 12px; }
+
+.vv-badge {
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: 1px solid transparent;
+}
+.vv-badge-pass { background: var(--add); color: #4ade80; border-color: #1f5135; }
+.vv-badge-fail { background: var(--del); color: #f87171; border-color: #6b1010; }

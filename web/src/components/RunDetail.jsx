@@ -6,6 +6,7 @@ import ObserverPanel from './ObserverPanel.jsx';
 import EvidencePanel from './EvidencePanel.jsx';
 import DiffViewer from './DiffViewer.jsx';
 import SpecPanel from './SpecPanel.jsx';
+import VisualValidation from '../VisualValidation.jsx';
 
 // Caps from night-shift.sh defaults (WORKFLOW §7).
 const MAX_TASK_TURNS = 36;
@@ -108,6 +109,10 @@ export default function RunDetail({ project, runId }) {
 
       <Section title="Validation evidence">
         <EvidencePanel evidence={run.evidence} />
+      </Section>
+
+      <Section title="Visual validation" collapsible defaultOpen={!!run.visual?.length}>
+        <VisualValidation visual={run.visual} />
       </Section>
 
       <Section title="Diff">
