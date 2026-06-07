@@ -1,5 +1,5 @@
-import { readFile, readdir, writeFile, rename, unlink } from 'node:fs/promises';
-import { realpathSync } from 'node:fs';
+import { readFile, readdir, writeFile, rename, unlink, mkdir } from 'node:fs/promises';
+import { realpathSync, existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import path from 'node:path';
 import { SPECS_DIR, TODO_FILE } from '../config.js';
@@ -27,15 +27,21 @@ export function specNameSafe(name) {
   return /^[A-Za-z0-9._-]+\.md$/.test(name) && name !== '.md';
 }
 
-// Returns the absolute on-disk path for `name`, strictly confined to the real
-// SPECS_DIR (defense in depth against a symlinked specs dir), or `null`. Never
-// throws — a missing SPECS_DIR or any fs error yields `null`.
+// Returns the absolute on-disk path for `name`, strictly confined to SPECS_DIR,
+// or `null`. Never throws. When SPECS_DIR exists we resolve it to its real path
+// (defense in depth against a symlinked specs dir); when it does not yet exist we
+// fall back to a plain absolute resolve, so the FIRST spec can be created in an
+// empty/missing specs dir and the path stays resolvable in an isolated checkout.
+// `name` is already a validated basename (no separators / `..` / absolute), so it
+// cannot escape the base dir either way.
 export function resolveSpecPath(name) {
   try {
     if (!specNameSafe(name)) return null;
-    const realDir = realpathSync(SPECS_DIR);
-    const resolved = path.join(realDir, name);
-    if (resolved !== realDir && resolved.startsWith(realDir + path.sep)) {
+    const baseDir = existsSync(SPECS_DIR)
+      ? realpathSync(SPECS_DIR)
+      : path.resolve(SPECS_DIR);
+    const resolved = path.join(baseDir, name);
+    if (resolved !== baseDir && resolved.startsWith(baseDir + path.sep)) {
       return resolved;
     }
     return null;
@@ -54,6 +60,8 @@ export async function saveSpec(name, content) {
   const target = resolveSpecPath(name);
   if (!target) throw new Error('unsafe spec name');
   const dir = path.dirname(target);
+  // Create specs/ if it does not exist yet, so the first spec can be saved.
+  await mkdir(dir, { recursive: true });
   const tmp = path.join(dir, `.${name}.${randomBytes(8).toString('hex')}.tmp`);
   try {
     await writeFile(tmp, content, 'utf8');
