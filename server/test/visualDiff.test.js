@@ -7,11 +7,14 @@ function screen(over = {}) {
   return {
     screen: 'Home',
     state: 'default',
+    device: 'iphone-15',
     reference: 'ref/home.png',
     screenshot: 'shot/home.png',
     diff_pct: 0.5,
     tolerance: 1,
     pass: true,
+    analysis: '',
+    attempts: [],
     diff_image: 'diff/home.png',
     ...over,
   };
@@ -139,4 +142,42 @@ test('rejects a non-object screen element without throwing', () => {
   assert.doesNotThrow(() => validateVisualDiff(r));
   assert.equal(validateVisualDiff(r).ok, false);
   assert.equal(overallPass(r), false);
+});
+
+test('rejects a screen missing the new device key', () => {
+  const r = report([{ ...screen(), device: undefined }]);
+  delete r.screens[0].device;
+  const { ok, errors } = validateVisualDiff(r);
+  assert.equal(ok, false);
+  assert.ok(errors.some((e) => e.includes('missing key: device')));
+});
+
+test('rejects non-string analysis', () => {
+  const r = report([screen({ analysis: 42 })]);
+  const { ok, errors } = validateVisualDiff(r);
+  assert.equal(ok, false);
+  assert.ok(errors.some((e) => e.includes('analysis must be a string')));
+});
+
+test('rejects attempts that is not an array', () => {
+  const r = report([screen({ attempts: 'nope' })]);
+  const { ok, errors } = validateVisualDiff(r);
+  assert.equal(ok, false);
+  assert.ok(errors.some((e) => e.includes('attempts must be an array')));
+});
+
+test('rejects an attempt with a bad diff_pct', () => {
+  const r = report([screen({ attempts: [{ attempt: 1, diff_pct: -1, pass: false, analysis: 'x', screenshot: 's', diff_image: null }] })]);
+  const { ok, errors } = validateVisualDiff(r);
+  assert.equal(ok, false);
+  assert.ok(errors.some((e) => e.includes('attempts[0].diff_pct must be a number >= 0')));
+});
+
+test('accepts a conforming screen with device, analysis, attempts', () => {
+  const r = report([screen({
+    device: 'iphone-15', analysis: 'fixed spacing',
+    attempts: [{ attempt: 1, diff_pct: 0.04, pass: true, analysis: 'within tolerance', screenshot: 's1', diff_image: null }],
+  })]);
+  const { ok, errors } = validateVisualDiff(r);
+  assert.equal(ok, true, errors.join('; '));
 });
