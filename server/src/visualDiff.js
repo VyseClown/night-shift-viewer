@@ -5,14 +5,8 @@
 // reported via the returned `errors`, never surfaced as a pass.
 
 const SCREEN_KEYS = [
-  'screen',
-  'state',
-  'reference',
-  'screenshot',
-  'diff_pct',
-  'tolerance',
-  'pass',
-  'diff_image',
+  'screen', 'state', 'device', 'reference', 'screenshot',
+  'diff_pct', 'tolerance', 'pass', 'analysis', 'attempts', 'diff_image',
 ];
 
 function isPlainObject(v) {
@@ -73,6 +67,24 @@ export function validateVisualDiff(report) {
     if (!isNonEmptyString(screen.state)) errors.push(`${at}.state must be a non-empty string`);
     if (!isNonEmptyString(screen.reference)) errors.push(`${at}.reference must be a non-empty string`);
     if (!isNonEmptyString(screen.screenshot)) errors.push(`${at}.screenshot must be a non-empty string`);
+
+    if (!isNonEmptyString(screen.device)) errors.push(`${at}.device must be a non-empty string`);
+    if (typeof screen.analysis !== 'string') errors.push(`${at}.analysis must be a string`);
+
+    if (!Array.isArray(screen.attempts)) {
+      errors.push(`${at}.attempts must be an array`);
+    } else {
+      screen.attempts.forEach((a, j) => {
+        const aat = `${at}.attempts[${j}]`;
+        if (!isPlainObject(a)) { errors.push(`${aat} must be an object`); return; }
+        if (!Number.isInteger(a.attempt) || a.attempt < 1) errors.push(`${aat}.attempt must be an integer >= 1`);
+        if (!isFiniteNumber(a.diff_pct) || a.diff_pct < 0) errors.push(`${aat}.diff_pct must be a number >= 0`);
+        if (typeof a.pass !== 'boolean') errors.push(`${aat}.pass must be a boolean`);
+        if (typeof a.analysis !== 'string') errors.push(`${aat}.analysis must be a string`);
+        if (!isNonEmptyString(a.screenshot)) errors.push(`${aat}.screenshot must be a non-empty string`);
+        if (a.diff_image !== null && !isNonEmptyString(a.diff_image)) errors.push(`${aat}.diff_image must be a non-empty string or null`);
+      });
+    }
 
     if (!isFiniteNumber(screen.diff_pct) || screen.diff_pct < 0) {
       errors.push(`${at}.diff_pct must be a number >= 0`);

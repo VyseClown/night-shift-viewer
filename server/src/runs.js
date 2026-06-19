@@ -216,9 +216,21 @@ function screenView(screen, validatedDir, runDir, project, runId) {
     diff_pct: screen.diff_pct ?? null,
     tolerance: screen.tolerance ?? null,
     pass: typeof screen.pass === 'boolean' ? screen.pass : null,
+    device: screen.device,
+    analysis: screen.analysis ?? '',
     referenceUrl: urlFor(screen.reference),
     screenshotUrl: urlFor(screen.screenshot),
     diffImageUrl: urlFor(screen.diff_image),
+    attempts: Array.isArray(screen.attempts)
+      ? screen.attempts.map((a) => ({
+          attempt: a.attempt,
+          diff_pct: a.diff_pct,
+          pass: a.pass,
+          analysis: a.analysis ?? '',
+          screenshotUrl: urlFor(a.screenshot),
+          diffImageUrl: urlFor(a.diff_image),
+        }))
+      : [],
   };
 }
 

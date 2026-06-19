@@ -25,8 +25,27 @@ function VvImage({ url, alt, label }) {
   );
 }
 
+function VvAttempts({ attempts }) {
+  if (!attempts?.length) return null;
+  return (
+    <details className="vv-attempts">
+      <summary>Attempts ({attempts.length})</summary>
+      <ol className="vv-attempt-list">
+        {attempts.map((a) => (
+          <li key={a.attempt} className="vv-attempt">
+            <span className={a.pass ? 'exit-ok' : 'exit-bad'}>
+              {a.attempt}. {a.diff_pct}% {a.pass ? 'pass' : 'fail'}
+            </span>
+            {a.analysis && <span className="vv-attempt-analysis"> — {a.analysis}</span>}
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
+
 function VvScreen({ screen }) {
-  const id = `${screen.screen ?? '—'} · ${screen.state ?? '—'}`;
+  const id = `${screen.screen ?? '—'} · ${screen.state ?? '—'} · ${screen.device ?? '—'}`;
   return (
     <section className="vv-screen">
       <div className="vv-screen-head">
@@ -42,6 +61,8 @@ function VvScreen({ screen }) {
         diff <strong className={screen.pass === true ? 'exit-ok' : 'exit-bad'}>{screen.diff_pct}%</strong>{' '}
         vs tolerance {screen.tolerance}%
       </p>
+      {screen.analysis && <p className="vv-analysis">Analysis: {screen.analysis}</p>}
+      <VvAttempts attempts={screen.attempts} />
     </section>
   );
 }
