@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { discoverProjects, isNightShiftProject } from '../config.js';
+import { discoverProjects, discoverRepos, inspectRepo, isNightShiftProject } from '../config.js';
 
 // Build a throwaway workspace root with child dirs in given shapes.
 //   shape: { git?, gitignore?: string, nightshift? }
@@ -86,4 +86,77 @@ test('isNightShiftProject is false for a missing directory', () => {
 
 test('discoverProjects returns [] for an unreadable root', () => {
   assert.deepEqual(discoverProjects('/no/such/root/xyz'), []);
+});
+
+// ── Readiness reporting (not-ready surfacing) ──
+
+test('inspectRepo: a fully opted-in repo is ready with no blockers/warnings', () => {
+  const { root, cleanup } = makeWorkspace({
+    r: { git: true, gitignore: '.night-shift/\n' },
+  });
+  try {
+    const dir = path.join(root, 'r');
+    writeFileSync(path.join(dir, 'CLAUDE.md'), '# r\n');
+    const info = inspectRepo(dir);
+    assert.equal(info.ready, true);
+    assert.deepEqual(info.blockers, []);
+    assert.deepEqual(info.warnings, []);
+  } finally {
+    cleanup();
+  }
+});
+
+test('inspectRepo: missing .night-shift gitignore is a blocker (not ready)', () => {
+  const { root, cleanup } = makeWorkspace({
+    r: { git: true, gitignore: 'node_modules\n' },
+  });
+  try {
+    const info = inspectRepo(path.join(root, 'r'));
+    assert.equal(info.ready, false);
+    assert.equal(info.blockers.length, 1);
+    assert.match(info.blockers[0], /gitignore .*\.night-shift/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('inspectRepo: missing CLAUDE.md is a warning, not a blocker', () => {
+  const { root, cleanup } = makeWorkspace({
+    r: { git: true, gitignore: '.night-shift/\n' },
+  });
+  try {
+    const info = inspectRepo(path.join(root, 'r'));
+    assert.equal(info.ready, true); // warning does not block
+    assert.equal(info.warnings.length, 1);
+    assert.match(info.warnings[0], /CLAUDE\.md/);
+  } finally {
+    cleanup();
+  }
+});
+
+test('inspectRepo: non-git directory is not a candidate (null)', () => {
+  const { root, cleanup } = makeWorkspace({ r: { gitignore: '.night-shift/\n' } });
+  try {
+    assert.equal(inspectRepo(path.join(root, 'r')), null);
+  } finally {
+    cleanup();
+  }
+});
+
+test('discoverRepos includes not-ready repos so the UI can surface them', () => {
+  const { root, cleanup } = makeWorkspace({
+    ready: { git: true, gitignore: '.night-shift/\n' },
+    blocked: { git: true, gitignore: 'node_modules\n' },
+    'not-a-repo': { gitignore: '.night-shift/\n' },
+  });
+  try {
+    const repos = discoverRepos(root);
+    assert.deepEqual(repos.map((r) => r.id), ['blocked', 'ready']);
+    assert.equal(repos.find((r) => r.id === 'ready').ready, true);
+    assert.equal(repos.find((r) => r.id === 'blocked').ready, false);
+    // discoverProjects (scannable) still excludes the blocked, run-less repo.
+    assert.deepEqual(discoverProjects(root).map((d) => path.basename(d)), ['ready']);
+  } finally {
+    cleanup();
+  }
 });

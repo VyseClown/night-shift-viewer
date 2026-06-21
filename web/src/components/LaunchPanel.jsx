@@ -40,6 +40,7 @@ export default function LaunchPanel({ config, onLaunched }) {
   }, [mode]);
 
   const m = MODES[mode];
+  const notReady = (config?.repos || []).filter((r) => !r.ready);
   const realDisabled = mode === 'real' && !config.realEnabled;
   const needsConfirm = m.paid;
   const canStart =
@@ -104,6 +105,22 @@ export default function LaunchPanel({ config, onLaunched }) {
           </label>
         ))}
       </div>
+
+      {notReady.length > 0 && (
+        <div className="banner">
+          <strong>
+            {notReady.length} repo{notReady.length > 1 ? 's' : ''} under{' '}
+            <code className="mono">~/work</code> not ready to launch:
+          </strong>
+          <ul className="notready-list">
+            {notReady.map((r) => (
+              <li key={r.id}>
+                <code className="mono">{r.id}</code> — {r.blockers.join('; ')}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {realDisabled && (
         <div className="banner">

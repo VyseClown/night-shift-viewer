@@ -24,20 +24,36 @@ function gitignoresNightShift(dir) {
   }
 }
 
-// A sibling dir is a night-shift target when it is its own git repo AND it has
-// opted in — either by gitignoring `.night-shift/` (the documented marker) or by
-// already containing a `.night-shift/` run directory (it has been run before).
-// This is the predicate the hardcoded candidate list used to stand in for.
-export function isNightShiftProject(dir) {
-  if (dir === viewerRoot) return false; // never the dashboard itself
-  if (!existsSync(path.join(dir, '.git'))) return false; // must be its own repo
-  if (existsSync(path.join(dir, '.night-shift'))) return true; // has run data
-  return gitignoresNightShift(dir);
+// Inspect a candidate directory and report its night-shift readiness. Returns
+// null when the directory is not a candidate at all (the viewer's own repo, or
+// not its own git repo). Otherwise returns
+//   { id, root, ready, hasRun, blockers, warnings }
+// where `ready` (safe to launch/scan) requires the repo to gitignore
+// `.night-shift/` so a run never commits engine artifacts into the project repo,
+// and `warnings` are non-blocking notes (e.g. no CLAUDE.md → the engine uses its
+// default validation commands). Not-ready repos are kept (with their blockers) so
+// the UI can surface them with the fix instead of hiding them silently.
+export function inspectRepo(dir) {
+  if (dir === viewerRoot) return null; // never the dashboard itself
+  if (!existsSync(path.join(dir, '.git'))) return null; // must be its own repo
+  const hasRun = existsSync(path.join(dir, '.night-shift'));
+  const blockers = [];
+  const warnings = [];
+  if (!gitignoresNightShift(dir)) {
+    blockers.push(
+      'does not gitignore `.night-shift/` — a run would commit engine artifacts into the project repo',
+    );
+  }
+  if (!existsSync(path.join(dir, 'CLAUDE.md'))) {
+    warnings.push('no CLAUDE.md — the engine falls back to default validation commands');
+  }
+  return { id: path.basename(dir), root: dir, ready: blockers.length === 0, hasRun, blockers, warnings };
 }
 
-// Scan a workspace root for night-shift target repos. READ-ONLY: the viewer
-// never writes into discovered projects. Returns absolute paths, sorted.
-export function discoverProjects(root) {
+// Scan a workspace root for candidate repos (its own git-repo subdirs), each
+// annotated with readiness. READ-ONLY: the viewer never writes into them. Sorted
+// by id. Includes not-ready repos so the launcher can surface them.
+export function discoverRepos(root) {
   let entries;
   try {
     entries = readdirSync(root, { withFileTypes: true });
@@ -46,27 +62,51 @@ export function discoverProjects(root) {
   }
   return entries
     .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
-    .map((e) => path.join(root, e.name))
-    .filter(isNightShiftProject)
-    .sort();
+    .map((e) => inspectRepo(path.join(root, e.name)))
+    .filter(Boolean)
+    .sort((a, b) => a.id.localeCompare(b.id));
 }
 
-// Discovery is automatic. An explicit override (path-delimiter–separated
-// absolute paths in NSV_PROJECT_DIRS) bypasses the scan — useful for tests or
-// for pointing the viewer at projects outside ~/work.
+// Backward-compatible boolean: a repo the viewer should scan for runs — either
+// ready (opted in) or carrying existing run data so its history stays visible.
+export function isNightShiftProject(dir) {
+  const r = inspectRepo(dir);
+  return !!r && (r.ready || r.hasRun);
+}
+
+// Backward-compatible: the absolute paths of scannable projects, sorted.
+export function discoverProjects(root) {
+  return discoverRepos(root)
+    .filter((r) => r.ready || r.hasRun)
+    .map((r) => r.root);
+}
+
+// Discovery is automatic. An explicit override (path-delimiter–separated absolute
+// paths in NSV_PROJECT_DIRS) bypasses the scan — useful for tests or for pointing
+// the viewer at projects outside ~/work.
 const override = process.env.NSV_PROJECT_DIRS;
-const projectDirs = override
+const repos = override
   ? override
       .split(path.delimiter)
       .map((d) => d.trim())
       .filter(Boolean)
       .map((d) => path.resolve(d))
       .filter(existsSync)
-  : discoverProjects(workspaceRoot);
+      .map(inspectRepo)
+      .filter(Boolean)
+      .sort((a, b) => a.id.localeCompare(b.id))
+  : discoverRepos(workspaceRoot);
 
-// A project is launchable/scannable once discovered. Runs only appear once it
-// has a .night-shift/ (listRuns handles the empty case gracefully).
-export const PROJECTS = projectDirs.map((dir) => ({ id: path.basename(dir), root: dir }));
+// Every discovered candidate with its readiness (drives the launcher's repo
+// panel, which surfaces not-ready repos and how to fix them).
+export const REPOS = repos;
+
+// A project is launchable/scannable when it is ready, or already has run data so
+// its history stays visible. Runs only appear once it has a .night-shift/
+// (listRuns handles the empty case gracefully).
+export const PROJECTS = repos
+  .filter((r) => r.ready || r.hasRun)
+  .map((r) => ({ id: r.id, root: r.root }));
 
 export const SPECS_DIR = path.join(workspaceRoot, 'specs');
 export const TODO_FILE = path.join(workspaceRoot, 'TODO.md');

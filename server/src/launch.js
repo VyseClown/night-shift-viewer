@@ -8,6 +8,7 @@ import {
   REAL_LAUNCH_ENABLED,
   EDIT_ENABLED,
   PROJECTS,
+  REPOS,
   projectById,
 } from '../config.js';
 
@@ -26,6 +27,15 @@ export function launchConfig() {
     scriptPresent: existsSync(SCRIPT_PATH),
     scriptPath: SCRIPT_PATH,
     projects: PROJECTS.map((p) => p.id),
+    // Full discovery, including not-ready repos with their blockers/warnings, so
+    // the launcher can show why a repo is absent from the launchable list.
+    repos: REPOS.map((r) => ({
+      id: r.id,
+      ready: r.ready,
+      hasRun: r.hasRun,
+      blockers: r.blockers,
+      warnings: r.warnings,
+    })),
   };
 }
 

@@ -138,6 +138,8 @@ body {
   font-size: 13px;
 }
 .banner-err { background: var(--del); border-color: #6b1010; color: #f87171; }
+.notready-list { margin: 6px 0 0; padding-left: 18px; }
+.notready-list li { margin: 2px 0; }
 
 .diff-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .diff-controls button {
