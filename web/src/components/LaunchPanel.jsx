@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { postLaunch, getSpecs } from '../api.js';
+import { postLaunch, getSpecs, getPreflight, postPrepare } from '../api.js';
+import { checklistRows, prepareApplicable, preflightBlocks } from '../readiness.js';
 import LogConsole from './LogConsole.jsx';
 
 // mode → { label, paid, description }
@@ -30,6 +31,9 @@ export default function LaunchPanel({ config, onLaunched }) {
   const [activeId, setActiveId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
+  const [pf, setPf] = useState(null);
+  const [pfLoading, setPfLoading] = useState(false);
+  const [preparing, setPreparing] = useState(false);
 
   useEffect(() => {
     if (mode === 'real' && specs.length === 0) {
@@ -39,13 +43,47 @@ export default function LaunchPanel({ config, onLaunched }) {
     }
   }, [mode]);
 
+  // Fetch launch readiness whenever a real run has a concrete project + spec.
+  // An "auto: next TODO" selection (no spec) can't be preflighted, so the panel
+  // simply omits the checklist and Launch behaves as before.
+  useEffect(() => {
+    if (mode !== 'real' || !config.realEnabled || !project || !spec) {
+      setPf(null);
+      return;
+    }
+    let cancelled = false;
+    setPfLoading(true);
+    getPreflight(project, spec)
+      .then((r) => !cancelled && setPf(r))
+      .catch(() => !cancelled && setPf({ unavailable: true }))
+      .finally(() => !cancelled && setPfLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, project, spec, config.realEnabled]);
+
   const m = MODES[mode];
   const notReady = (config?.repos || []).filter((r) => !r.ready);
   const realDisabled = mode === 'real' && !config.realEnabled;
   const needsConfirm = m.paid;
+  const pfBlocks = mode === 'real' && !!spec && preflightBlocks(pf);
   const canStart =
     !busy && !realDisabled && (!needsConfirm || confirmPaid) &&
-    (mode !== 'real' || project);
+    (mode !== 'real' || project) && !pfBlocks;
+
+  async function prepare() {
+    setErr(null);
+    setPreparing(true);
+    try {
+      await postPrepare({ project, spec });
+      const r = await getPreflight(project, spec);
+      setPf(r);
+    } catch (e) {
+      setErr(String(e.message || e));
+    } finally {
+      setPreparing(false);
+    }
+  }
 
   async function start() {
     setErr(null);
@@ -153,6 +191,43 @@ export default function LaunchPanel({ config, onLaunched }) {
             </select>
           </label>
         </div>
+      )}
+
+      {mode === 'real' && config.realEnabled && spec && (
+        pfLoading && !pf ? (
+          <div className="muted">checking launch readiness…</div>
+        ) : pf?.unavailable ? (
+          <div className="muted">
+            preflight unavailable — Launch will run the engine's own checks.
+          </div>
+        ) : pf ? (
+          <div className="preflight">
+            <div className="preflight-head">
+              Launch readiness{' '}
+              {pf.ready ? (
+                <span className="chip chip-free">ready</span>
+              ) : (
+                <span className="chip chip-paid">not ready</span>
+              )}
+            </div>
+            <ul className="preflight-list">
+              {checklistRows(pf).map((row) => (
+                <li key={row.key} className={row.ok ? 'pf-ok' : 'pf-bad'}>
+                  <span className="pf-mark">{row.ok ? '✓' : '✗'}</span>
+                  <span>
+                    {row.label}
+                    {row.detail ? <span className="muted"> — {row.detail}</span> : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {prepareApplicable(pf) && (
+              <button className="prepare-btn" disabled={preparing} onClick={prepare}>
+                {preparing ? 'Preparing…' : `Prepare: checkout ${pf.branch.feature}`}
+              </button>
+            )}
+          </div>
+        ) : null
       )}
 
       {needsConfirm && !realDisabled && (

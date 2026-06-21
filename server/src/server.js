@@ -18,6 +18,7 @@ import {
   listLaunches,
   subscribeLaunch,
 } from './launch.js';
+import { runPreflight, prepareBranch } from './preflight.js';
 
 const app = new Hono();
 
@@ -124,6 +125,24 @@ app.get('/api/runs/:project/:runId/asset', (c) => {
       'Cache-Control': 'no-cache',
     },
   });
+});
+
+// Read-only launch readiness for a (project, spec). Ungated (like the run/spec
+// reads); execs the engine's --preflight. Degrades to { unavailable: true }.
+app.get('/api/preflight', (c) => {
+  const r = runPreflight({ project: c.req.query('project'), spec: c.req.query('spec') });
+  if (r.error) return c.json(r, r.code || 400);
+  return c.json(r);
+});
+
+// The single readiness mutation: checkout/create the spec's feature branch.
+// csrfGuard first (disallowed Origin → 403), then prepareBranch enforces
+// LAUNCH_ENABLED and refuses a dirty tree / worktree conflict (409).
+app.post('/api/prepare', csrfGuard, async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const r = await prepareBranch(body);
+  if (r.error) return c.json({ error: r.error }, r.code || 400);
+  return c.json(r);
 });
 
 // ── Launch control (mutating; gated by NSV_ALLOW_LAUNCH / NSV_ALLOW_REAL) ──
