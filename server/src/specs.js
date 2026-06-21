@@ -81,7 +81,7 @@ async function readText(file) {
   }
 }
 
-function parseMeta(text, filename) {
+export function parseMeta(text, filename) {
   const lines = text.split('\n');
 
   // title: first ^# (.+) line
@@ -108,7 +108,16 @@ function parseMeta(text, filename) {
   const fbMatch = text.match(/^- Feature branch:\s*`([^`]+)`/m);
   const featureBranch = fbMatch ? fbMatch[1] : null;
 
-  return { title, track, reviewProfile, projectPath, baseBranch, featureBranch };
+  // optionalReviewers: ^- Optional reviewers: <list> — split on , or |, trim, drop none/empty
+  const orMatch = text.match(/^- Optional reviewers:\s*(.*)/m);
+  const optionalReviewers = orMatch
+    ? orMatch[1]
+        .split(/[,|]/)
+        .map((s) => s.trim())
+        .filter((s) => s && s.toLowerCase() !== 'none')
+    : [];
+
+  return { title, track, reviewProfile, projectPath, baseBranch, featureBranch, optionalReviewers };
 }
 
 async function parseTodo() {
@@ -171,6 +180,7 @@ export async function listSpecs() {
       projectPath: meta.projectPath,
       baseBranch: meta.baseBranch,
       featureBranch: meta.featureBranch,
+      optionalReviewers: meta.optionalReviewers,
       isTemplate,
       todo,
       runs: specRuns.map((r) => ({

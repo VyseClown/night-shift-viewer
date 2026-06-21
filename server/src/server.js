@@ -19,6 +19,7 @@ import {
   subscribeLaunch,
 } from './launch.js';
 import { runPreflight, prepareBranch } from './preflight.js';
+import { getOptionalPersonas } from './optionalPersonas.js';
 
 const app = new Hono();
 
@@ -52,6 +53,11 @@ app.get('/api/health', (c) =>
 app.get('/api/runs', async (c) => c.json({ runs: await listRuns() }));
 
 app.get('/api/specs', async (c) => c.json({ specs: await listSpecs() }));
+
+// Read-only manifest of optional review personas from the engine. Ungated — no
+// NSV_ALLOW_* flag, no csrfGuard. Degrades to { optional_personas: [],
+// unavailable: true } when the engine lacks --list-optional-personas.
+app.get('/api/optional-personas', async (c) => c.json(await getOptionalPersonas()));
 
 app.get('/api/specs/:name', async (c) => {
   const spec = await loadSpec(c.req.param('name'));

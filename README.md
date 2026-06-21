@@ -23,6 +23,7 @@ sibling project repos and runs read-only `git` commands for diffs.
    GET /api/runs/:project/:runId       full run detail (state, reviews, evidence)
    GET /api/runs/:project/:runId/diff  structured per-file diff (fallback chain)
    GET /api/specs                      list specs; GET /api/specs/:name spec detail
+   GET /api/optional-personas          read-only manifest of optional review personas (from engine)
    PUT /api/specs/:name                save a spec (gated by NSV_ALLOW_EDIT; off by default)
    GET /api/events                     SSE: live state.json changes (chokidar)
         │
@@ -98,6 +99,31 @@ NSV_ALLOW_EDIT=1 npm run dev
   - Writes are **atomic** (temp file + rename) and confined to `specs/`; an
     existing name is overwritten, a new name is created. Spec content is never
     executed — it is plain markdown persisted for a later night-shift run.
+
+### Optional review persona toggles
+
+When editing a spec, an **"Optional review personas"** checkbox panel appears
+above the textarea (only in edit mode with `NSV_ALLOW_EDIT=1`). It is fed by
+`GET /api/optional-personas`, a **read-only, ungated** endpoint that shells out
+to `night-shift.sh --list-optional-personas` and caches the result in memory
+(success only). On failure or an older engine without the flag, the endpoint
+returns `{ optional_personas: [], unavailable: true }` and the panel is hidden
+— the editor behaves exactly as before.
+
+Each persona checkbox:
+
+- **Checked** when the persona is listed in `- Optional reviewers:` **or** is
+  active via its `## <…> Contract` section heading.
+- **Checked + disabled** when active only via its section (the field cannot
+  override a section-activated persona).
+- Toggling **on** adds the persona to the `- Optional reviewers:` field and
+  inserts a placeholder documentation-ownership line under
+  `- Documentation owned by each review persona:` (if the section exists and
+  the line is missing). If the section is absent, an inline warning fires.
+- Toggling **off** removes the persona from the field; ownership lines are
+  left in place (harmless to `validate_spec`).
+- The textarea remains the single source of truth; all edits are saved through
+  the existing `PUT /api/specs/:name` path.
 
 ## Status
 

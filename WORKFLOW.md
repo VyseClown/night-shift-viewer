@@ -372,3 +372,33 @@ create or edit the engine's spec markdown from the **Specs** tab:
 - **Out of scope / non-execution**: spec content is plain markdown, never
   executed; the editor does not run `validate_spec` (the night-shift validates at
   run time) and does not delete or rename specs.
+
+### 9.1 Optional persona toggles
+
+An **"Optional review personas"** panel is shown above the textarea in edit mode,
+powered by `GET /api/optional-personas`:
+
+- **Endpoint** (`server/src/optionalPersonas.js`): read-only, ungated (no
+  `NSV_ALLOW_*`, no `csrfGuard`). Execs `bash <SCRIPT_PATH> --list-optional-personas`
+  using `execFile` (argument vector, no shell) with a 10 s timeout. Parses stdout
+  as JSON, shape-checks it (`optional_personas: [{name, contractHeading}]`), and
+  caches a successful result in memory for the server's lifetime. Any failure
+  (engine lacks the flag, exec error, parse error, shape mismatch) resolves to
+  `{ optional_personas: [], unavailable: true }` — not cached, so the next
+  request retries. Never throws.
+- **Response shape (200)**: `{ optional_personas: [{name: string, contractHeading:
+  string}], unavailable: boolean }`. `contractHeading` has no `##` prefix.
+- **Panel** (`web/src/components/PersonaToggles.jsx`): built from `analyze(draft,
+  manifest)` in the pure module `web/src/personaEdits.js`. A persona is checked
+  when `effective` (in field or via contract section). When active only via its
+  section (`viaSection && !inField`), the checkbox is checked + disabled, with a
+  note (`aria-describedby`) explaining the activation source. Toggling on/off calls
+  `toggleOn`/`toggleOff` from the pure module and lifts the new draft up to the
+  textarea. When any effective persona lacks an ownership line, an inline
+  `role="alert"` live region fires. When the manifest is empty (unavailable engine),
+  the panel renders nothing and the editor behaves as today.
+- **Pure edit module** (`web/src/personaEdits.js`): no React/DOM/Node-I/O imports
+  — pure string/regex logic runnable under `node --test`. All functions return a
+  new string and never mutate input. Uses the `m` (multiline) flag on every
+  `^`-anchored regex so headings and ownership lines anywhere in a spec are matched
+  correctly.

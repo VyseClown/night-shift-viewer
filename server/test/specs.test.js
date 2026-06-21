@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
-import { specNameSafe, resolveSpecPath } from '../src/specs.js';
+import { specNameSafe, resolveSpecPath, parseMeta } from '../src/specs.js';
 import { SPECS_DIR } from '../config.js';
 import { app } from '../src/server.js';
 
@@ -87,4 +87,33 @@ test('PUT /api/specs/:name from a cross-site Origin is rejected (403 CORS)', asy
   });
   assert.equal(res.status, 403);
   assert.equal((await res.json()).error, 'cross-origin request rejected');
+});
+
+// ── parseMeta / optionalReviewers ─────────────────────────────────────────────
+
+test('parseMeta returns empty optionalReviewers when field is absent', () => {
+  const meta = parseMeta('# My Spec\n- Track: web\n', 'my-spec.md');
+  assert.deepEqual(meta.optionalReviewers, []);
+});
+
+test('parseMeta parses a comma-separated Optional reviewers field', () => {
+  const text = '# Spec\n- Optional reviewers: Security Reviewer, API Contract Reviewer\n';
+  const meta = parseMeta(text, 'spec.md');
+  assert.deepEqual(meta.optionalReviewers, ['Security Reviewer', 'API Contract Reviewer']);
+});
+
+test('parseMeta parses a pipe-separated Optional reviewers field', () => {
+  const text = '# Spec\n- Optional reviewers: Security Reviewer | Design Fidelity Reviewer\n';
+  const meta = parseMeta(text, 'spec.md');
+  assert.deepEqual(meta.optionalReviewers, ['Security Reviewer', 'Design Fidelity Reviewer']);
+});
+
+test('parseMeta returns empty optionalReviewers for "none"', () => {
+  const meta = parseMeta('# Spec\n- Optional reviewers: none\n', 'spec.md');
+  assert.deepEqual(meta.optionalReviewers, []);
+});
+
+test('parseMeta trims whitespace from reviewer names', () => {
+  const meta = parseMeta('# Spec\n- Optional reviewers:  Security Reviewer , API Contract Reviewer  \n', 'spec.md');
+  assert.deepEqual(meta.optionalReviewers, ['Security Reviewer', 'API Contract Reviewer']);
 });

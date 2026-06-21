@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { getSpec, putSpec } from '../api.js';
+import { getSpec, putSpec, getOptionalPersonas } from '../api.js';
 import { StatusBadge } from './ui.jsx';
 import Markdown from './Markdown.jsx';
+import PersonaToggles from './PersonaToggles.jsx';
 
 // Client-side mirror of the server's specNameSafe — only gates the Save button;
 // the server re-validates authoritatively.
@@ -35,6 +36,8 @@ export default function SpecDetail({
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState(null);
   const [saveOk, setSaveOk] = useState(null);
+  // Manifest of optional personas — fetched once per edit session; null = not yet loaded.
+  const [personaManifest, setPersonaManifest] = useState(null);
 
   function resetEditor() {
     setMode('view');
@@ -43,6 +46,19 @@ export default function SpecDetail({
     setSaving(false);
     setSaveErr(null);
     setSaveOk(null);
+    setPersonaManifest(null);
+  }
+
+  function enterEditMode() {
+    setSaveOk(null);
+    setSaveErr(null);
+    setDraft(spec.markdown);
+    setPersonaManifest(null);
+    setMode('edit');
+    // Fetch the manifest once per edit session; degrade silently on any error.
+    getOptionalPersonas()
+      .then(setPersonaManifest)
+      .catch(() => setPersonaManifest({ optional_personas: [], unavailable: true }));
   }
 
   function loadSpec() {
@@ -191,6 +207,13 @@ export default function SpecDetail({
           <h2>Editing {spec.file}</h2>
         </div>
         <div className="spec-edit-fields">
+          {personaManifest && (
+            <PersonaToggles
+              draft={draft}
+              manifest={personaManifest}
+              onChange={setDraft}
+            />
+          )}
           <label htmlFor="edit-spec-body">
             Markdown
             <textarea
@@ -237,12 +260,7 @@ export default function SpecDetail({
           <div className="spec-edit-toolbar">
             <button
               className="ghost-btn"
-              onClick={() => {
-                setSaveOk(null);
-                setSaveErr(null);
-                setDraft(spec.markdown);
-                setMode('edit');
-              }}
+              onClick={enterEditMode}
             >
               Edit
             </button>
