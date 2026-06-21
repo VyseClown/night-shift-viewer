@@ -1,25 +1,72 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 // ~/work — the container that holds the sibling project repos.
 const workspaceRoot = path.resolve(here, '..', '..');
+// The viewer's own repo (a sibling of the targets); excluded from discovery so
+// the dashboard never lists or launches night-shift against itself.
+const viewerRoot = path.resolve(here, '..');
 
-// Projects to scan for a `.night-shift/` directory. Each entry is an absolute
-// path to a git project repo. Only existing directories are kept. READ-ONLY:
-// the viewer never writes into these.
-const candidates = [
-  path.join(workspaceRoot, 'rn-sandbox'),
-  path.join(workspaceRoot, 'web-app'),
-  path.join(workspaceRoot, 'nightshift-demo'),
-];
+// A `.gitignore` opts a repo into night-shift by ignoring the engine's run
+// directory — the documented prerequisite ("a target project must gitignore
+// .night-shift/"). Match the path with or without leading/trailing slashes.
+function gitignoresNightShift(dir) {
+  try {
+    const gi = readFileSync(path.join(dir, '.gitignore'), 'utf8');
+    return gi.split(/\r?\n/).some((line) => {
+      const t = line.trim().replace(/^\/+/, '').replace(/\/+$/, '');
+      return t === '.night-shift';
+    });
+  } catch {
+    return false;
+  }
+}
 
-// A project is launchable/scannable if its directory exists. Runs only appear
-// once it has a .night-shift/ (listRuns handles the empty case gracefully).
-export const PROJECTS = candidates
-  .filter((dir) => existsSync(dir))
-  .map((dir) => ({ id: path.basename(dir), root: dir }));
+// A sibling dir is a night-shift target when it is its own git repo AND it has
+// opted in — either by gitignoring `.night-shift/` (the documented marker) or by
+// already containing a `.night-shift/` run directory (it has been run before).
+// This is the predicate the hardcoded candidate list used to stand in for.
+export function isNightShiftProject(dir) {
+  if (dir === viewerRoot) return false; // never the dashboard itself
+  if (!existsSync(path.join(dir, '.git'))) return false; // must be its own repo
+  if (existsSync(path.join(dir, '.night-shift'))) return true; // has run data
+  return gitignoresNightShift(dir);
+}
+
+// Scan a workspace root for night-shift target repos. READ-ONLY: the viewer
+// never writes into discovered projects. Returns absolute paths, sorted.
+export function discoverProjects(root) {
+  let entries;
+  try {
+    entries = readdirSync(root, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  return entries
+    .filter((e) => e.isDirectory() && !e.name.startsWith('.'))
+    .map((e) => path.join(root, e.name))
+    .filter(isNightShiftProject)
+    .sort();
+}
+
+// Discovery is automatic. An explicit override (path-delimiter–separated
+// absolute paths in NSV_PROJECT_DIRS) bypasses the scan — useful for tests or
+// for pointing the viewer at projects outside ~/work.
+const override = process.env.NSV_PROJECT_DIRS;
+const projectDirs = override
+  ? override
+      .split(path.delimiter)
+      .map((d) => d.trim())
+      .filter(Boolean)
+      .map((d) => path.resolve(d))
+      .filter(existsSync)
+  : discoverProjects(workspaceRoot);
+
+// A project is launchable/scannable once discovered. Runs only appear once it
+// has a .night-shift/ (listRuns handles the empty case gracefully).
+export const PROJECTS = projectDirs.map((dir) => ({ id: path.basename(dir), root: dir }));
 
 export const SPECS_DIR = path.join(workspaceRoot, 'specs');
 export const TODO_FILE = path.join(workspaceRoot, 'TODO.md');

@@ -42,8 +42,11 @@ cd server && npm install && npm run dev      # → http://127.0.0.1:8787
 cd web && npm install && npm run dev         # → http://127.0.0.1:5173 (proxies /api → 8787)
 ```
 
-Configure which projects to scan in `server/config.js` (defaults to the sibling
-`rn-sandbox` and `web-app`, whichever exist).
+Projects are **auto-discovered**: any sibling repo under `~/work` that is its own
+git repo and has opted in — by gitignoring `.night-shift/` (the documented
+prerequisite) or by already having a `.night-shift/` run dir — is scanned. The
+viewer's own repo is excluded. Set `NSV_PROJECT_DIRS=/abs/a:/abs/b` to bypass
+discovery with an explicit list. See `discoverProjects` in `server/config.js`.
 
 ## Launching runs (opt-in, macOS)
 
