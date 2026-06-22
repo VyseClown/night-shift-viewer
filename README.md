@@ -24,7 +24,9 @@ sibling project repos and runs read-only `git` commands for diffs.
    GET /api/runs/:project/:runId/diff  structured per-file diff (fallback chain)
    GET /api/specs                      list specs; GET /api/specs/:name spec detail
    GET /api/optional-personas          read-only manifest of optional review personas (from engine)
+   GET /api/preflight                  read-only launch-readiness report (execs engine --preflight)
    PUT /api/specs/:name                save a spec (gated by NSV_ALLOW_EDIT; off by default)
+   POST /api/prepare                   checkout/create the spec's feature branch (gated by NSV_ALLOW_LAUNCH)
    GET /api/events                     SSE: live state.json changes (chokidar)
         │
         ▼
@@ -48,6 +50,10 @@ git repo and has opted in — by gitignoring `.night-shift/` (the documented
 prerequisite) or by already having a `.night-shift/` run dir — is scanned. The
 viewer's own repo is excluded. Set `NSV_PROJECT_DIRS=/abs/a:/abs/b` to bypass
 discovery with an explicit list. See `discoverProjects` in `server/config.js`.
+
+Repos that are discovered but **not yet ready** (e.g. they don't gitignore
+`.night-shift/`) are not hidden — the launcher surfaces them with their blockers
+so you can see what to fix, rather than silently dropping them.
 
 ## Launching runs (opt-in, macOS)
 
@@ -73,6 +79,21 @@ wildcard), and the mutating launch endpoints (`POST /api/launch`,
 `POST /api/launch/:id/stop`) reject any request carrying a non-allow-listed
 `Origin`, so another website cannot trigger a costly run even when launch is
 enabled. Non-browser callers (curl, tests) send no `Origin` and are allowed.
+
+### Launch readiness (preflight + Prepare)
+
+Before a run, the launcher shows a **readiness checklist** for the selected
+(project, spec). It is built from `GET /api/preflight`, an **ungated, read-only**
+endpoint that shells out to the engine's `night-shift.sh --preflight` (the single
+source of truth) and degrades to `{ unavailable: true }` on an older engine.
+The checklist covers: spec valid, on the spec's feature branch, working tree
+clean, `.night-shift/` gitignored, and no worktree conflict.
+
+When the only thing missing is the branch, a **Prepare** button posts to
+`POST /api/prepare`, which checks out (or creates) the spec's feature branch. It
+is the launcher's single readiness *mutation*: gated by `NSV_ALLOW_LAUNCH`,
+guarded by the same CSRF `Origin` check as launch, and it refuses a dirty tree or
+worktree conflict (`409`) rather than touching uncommitted work.
 
 ## Editing specs (opt-in)
 
@@ -131,3 +152,4 @@ Each persona checkbox:
 - [x] Phase 1 — dashboards (gates, counters, persona matrix, observer, evidence)
 - [x] Phase 2 — diff viewer with `base..HEAD → base..candidate → stored .patch` fallback
 - [x] Phase 3 — live monitoring (auto-refresh while running) + launch control (dry-run/fixture/real, gated)
+- [x] Phase 4 — launch-readiness preflight + Prepare, auto-discovery, gated in-viewer spec editor with optional-persona toggles
