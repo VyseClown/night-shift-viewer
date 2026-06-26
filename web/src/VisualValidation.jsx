@@ -5,6 +5,8 @@
 // when the server resolved them on disk, and an invalid/unparseable report is
 // shown as a flagged error — never as a pass.
 
+import { attemptThumbnails } from './visualAttempts.js';
+
 function VvBadge({ pass }) {
   const label = pass ? 'pass' : 'fail';
   return <span className={`vv-badge vv-badge-${label}`}>{label}</span>;
@@ -31,14 +33,24 @@ function VvAttempts({ attempts }) {
     <details className="vv-attempts">
       <summary>Attempts ({attempts.length})</summary>
       <ol className="vv-attempt-list">
-        {attempts.map((a) => (
-          <li key={a.attempt} className="vv-attempt">
-            <span className={a.pass ? 'exit-ok' : 'exit-bad'}>
-              {a.attempt}. {a.diff_pct}% {a.pass ? 'pass' : 'fail'}
-            </span>
-            {a.analysis && <span className="vv-attempt-analysis"> — {a.analysis}</span>}
-          </li>
-        ))}
+        {attempts.map((a) => {
+          const thumbs = attemptThumbnails(a);
+          return (
+            <li key={a.attempt} className="vv-attempt">
+              <span className={a.pass ? 'exit-ok' : 'exit-bad'}>
+                {a.attempt}. {a.diff_pct}% {a.pass ? 'pass' : 'fail'}
+              </span>
+              {a.analysis && <span className="vv-attempt-analysis"> — {a.analysis}</span>}
+              {thumbs.length > 0 && (
+                <div className="vv-attempt-images">
+                  {thumbs.map((t) => (
+                    <VvImage key={t.label} url={t.url} label={t.label} alt={`attempt ${a.attempt} ${t.label}`} />
+                  ))}
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ol>
     </details>
   );

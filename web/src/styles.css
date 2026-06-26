@@ -472,6 +472,13 @@ body {
   color: var(--muted);
   font-size: 12px;
 }
+.vv-attempt-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+.vv-attempt-images .vv-figure { max-width: 130px; }
 
 .vv-metrics { margin: 4px 0 0; font-size: 12px; }
 
