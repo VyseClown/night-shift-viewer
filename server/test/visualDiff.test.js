@@ -181,3 +181,21 @@ test('accepts a conforming screen with device, analysis, attempts', () => {
   const { ok, errors } = validateVisualDiff(r);
   assert.equal(ok, true, errors.join('; '));
 });
+
+test('unmet_brief is optional: absent is fine (back-compat)', () => {
+  const { ok, errors } = validateVisualDiff(report([screen()]));
+  assert.equal(ok, true, errors.join('; '));
+});
+
+test('accepts an unmet_brief array of strings', () => {
+  const r = report([screen({ unmet_brief: ['button 44pt', 'header color #FFF'] })]);
+  const { ok, errors } = validateVisualDiff(r);
+  assert.equal(ok, true, errors.join('; '));
+});
+
+test('rejects an unmet_brief that is not an array of strings', () => {
+  const r = report([screen({ unmet_brief: [1, 'ok'] })]);
+  const { ok, errors } = validateVisualDiff(r);
+  assert.equal(ok, false);
+  assert.ok(errors.some((e) => e.includes('unmet_brief')));
+});

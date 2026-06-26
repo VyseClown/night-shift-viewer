@@ -62,6 +62,16 @@ function VvScreen({ screen }) {
         vs tolerance {screen.tolerance}%
       </p>
       {screen.analysis && <p className="vv-analysis">Analysis: {screen.analysis}</p>}
+      {screen.unmet_brief?.length > 0 && (
+        <div className="vv-unmet">
+          <p className="vv-unmet-label">Unmet brief:</p>
+          <ul className="vv-unmet-list">
+            {screen.unmet_brief.map((item, i) => (
+              <li key={i}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <VvAttempts attempts={screen.attempts} />
     </section>
   );
