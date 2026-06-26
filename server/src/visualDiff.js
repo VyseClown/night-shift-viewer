@@ -9,6 +9,10 @@ const SCREEN_KEYS = [
   'diff_pct', 'tolerance', 'pass', 'analysis', 'attempts', 'diff_image',
 ];
 
+// Keys allowed on a screen but not required — present on reports from newer
+// engine versions, absent on older ones. Tolerated either way (back-compat).
+const OPTIONAL_SCREEN_KEYS = ['unmet_brief'];
+
 function isPlainObject(v) {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -53,7 +57,7 @@ export function validateVisualDiff(report) {
       return;
     }
     for (const key of Object.keys(screen)) {
-      if (!SCREEN_KEYS.includes(key)) {
+      if (!SCREEN_KEYS.includes(key) && !OPTIONAL_SCREEN_KEYS.includes(key)) {
         errors.push(`${at} has unexpected key: ${key}`);
       }
     }
@@ -61,6 +65,11 @@ export function validateVisualDiff(report) {
       if (!(key in screen)) {
         errors.push(`${at} missing key: ${key}`);
       }
+    }
+    if ('unmet_brief' in screen &&
+        !(Array.isArray(screen.unmet_brief) &&
+          screen.unmet_brief.every((s) => typeof s === 'string'))) {
+      errors.push(`${at}.unmet_brief must be an array of strings`);
     }
 
     if (!isNonEmptyString(screen.screen)) errors.push(`${at}.screen must be a non-empty string`);

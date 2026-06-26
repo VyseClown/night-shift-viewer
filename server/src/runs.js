@@ -218,6 +218,7 @@ function screenView(screen, validatedDir, runDir, project, runId) {
     pass: typeof screen.pass === 'boolean' ? screen.pass : null,
     device: screen.device,
     analysis: screen.analysis ?? '',
+    unmet_brief: Array.isArray(screen.unmet_brief) ? screen.unmet_brief : [],
     referenceUrl: urlFor(screen.reference),
     screenshotUrl: urlFor(screen.screenshot),
     diffImageUrl: urlFor(screen.diff_image),

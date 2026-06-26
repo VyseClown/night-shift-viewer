@@ -42,7 +42,8 @@
                 "diff_image": { "type": ["string", "null"], "minLength": 1 }
               }
             }
-          }
+          },
+          "unmet_brief": { "type": "array", "items": { "type": "string" } }
         }
       }
     }
