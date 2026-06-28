@@ -3,8 +3,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-// ~/work — the container that holds the sibling project repos.
+// ~/work — the container that holds the sibling project repos (discovery root).
 const workspaceRoot = path.resolve(here, '..', '..');
+// The engine repo now lives in its own directory under the container (it used to
+// BE the container). SCRIPT_PATH/SPECS_DIR/TODO_FILE resolve against this, while
+// project discovery still scans workspaceRoot. Override with NSV_ENGINE_DIR.
+const engineRoot = process.env.NSV_ENGINE_DIR
+  ? path.resolve(process.env.NSV_ENGINE_DIR)
+  : path.join(workspaceRoot, 'night-shift-engine');
 // The viewer's own repo (a sibling of the targets); excluded from discovery so
 // the dashboard never lists or launches night-shift against itself.
 const viewerRoot = path.resolve(here, '..');
@@ -35,6 +41,7 @@ function gitignoresNightShift(dir) {
 // the UI can surface them with the fix instead of hiding them silently.
 export function inspectRepo(dir) {
   if (dir === viewerRoot) return null; // never the dashboard itself
+  if (dir === engineRoot) return null; // never the engine repo itself
   if (!existsSync(path.join(dir, '.git'))) return null; // must be its own repo
   const hasRun = existsSync(path.join(dir, '.night-shift'));
   const blockers = [];
@@ -108,10 +115,11 @@ export const PROJECTS = repos
   .filter((r) => r.ready || r.hasRun)
   .map((r) => ({ id: r.id, root: r.root }));
 
-export const SPECS_DIR = path.join(workspaceRoot, 'specs');
-export const TODO_FILE = path.join(workspaceRoot, 'TODO.md');
+export const SPECS_DIR = path.join(engineRoot, 'specs');
+export const TODO_FILE = path.join(engineRoot, 'TODO.md');
 export const WORKSPACE_ROOT = workspaceRoot;
-export const SCRIPT_PATH = path.join(workspaceRoot, 'scripts', 'night-shift.sh');
+export const ENGINE_ROOT = engineRoot;
+export const SCRIPT_PATH = path.join(engineRoot, 'scripts', 'night-shift.sh');
 
 // Launching mutates: it spawns night-shift.sh (autonomous agent, commits, cost).
 // OFF by default so the server stays read-only; opt in per the env flags.
