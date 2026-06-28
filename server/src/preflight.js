@@ -4,19 +4,22 @@ import path from 'node:path';
 import { simpleGit } from 'simple-git';
 import {
   WORKSPACE_ROOT,
+  ENGINE_ROOT,
   SCRIPT_PATH,
   LAUNCH_ENABLED,
   projectById,
 } from '../config.js';
 
-// A spec path is accepted only as a workspace-relative `specs/…md` (or similar)
-// with no traversal — the same shape launchRun accepts. Returns the confined
-// absolute path or null.
+// A spec path is accepted only as an engine-relative `specs/…md` (or similar)
+// with no traversal — the same shape launchRun accepts. Specs live under the
+// engine repo (ENGINE_ROOT); night-shift.sh resolves a relative `--spec` against
+// its own root (the engine dir), so resolve + confine here against the same root.
+// Returns the confined absolute path or null.
 function resolveSpec(spec) {
   if (typeof spec !== 'string') return null;
   if (!/^[A-Za-z0-9._/-]+\.md$/.test(spec) || spec.includes('..')) return null;
-  const abs = path.resolve(WORKSPACE_ROOT, spec);
-  if (abs !== WORKSPACE_ROOT && !abs.startsWith(WORKSPACE_ROOT + path.sep)) return null;
+  const abs = path.resolve(ENGINE_ROOT, spec);
+  if (abs !== ENGINE_ROOT && !abs.startsWith(ENGINE_ROOT + path.sep)) return null;
   return abs;
 }
 
